@@ -22,11 +22,12 @@ import {
   getDatabase,
   ref,
   get,
-  child
+  child,
+  onValue // ប្រើសម្រាប់ស្តាប់ទិន្នន័យ Realtime
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
 // --- Global Variables ---
-let dbAttendance, dbLeave, dbEmployeeList, authAttendance;
+let dbAttendance, dbLeave, dbEmployeeList, dbShift, authAttendance;
 let allEmployees = [];
 let currentMonthRecords = [];
 let attendanceRecords = [];
@@ -38,6 +39,7 @@ let attendanceListener = null;
 let leaveCollectionListener = null;
 let outCollectionListener = null;
 let currentConfirmCallback = null;
+let shiftSettings = {}; // *** អថេរសម្រាប់ផ្ទុកទិន្នន័យវេនពី Realtime DB ***
 
 // --- អថេរសម្រាប់គ្រប់គ្រង Session (Device Lock) ---
 let sessionCollectionRef = null;
@@ -68,9 +70,11 @@ const durationMap = {
 };
 
 // --- Firebase Configuration ---
+// *** Config សម្រាប់ Attendance & Shift Settings (Realtime DB) ***
 const firebaseConfigAttendance = {
   apiKey: "AIzaSyCgc3fq9mDHMCjTRRHD3BPBL31JkKZgXFc",
   authDomain: "checkme-10e18.firebaseapp.com",
+  databaseURL: "https://checkme-10e18-default-rtdb.firebaseio.com", // Updated URL
   projectId: "checkme-10e18",
   storageBucket: "checkme-10e18.firebasestorage.app",
   messagingSenderId: "1030447497157",
@@ -157,7 +161,6 @@ const employeeListContent = document.getElementById("employeeListContent");
 // --- Helper Functions ---
 
 function changeView(viewId) {
-  // Use simple display toggling, CSS handles animation via .view class
   const views = [loadingView, employeeListView, homeView, historyView];
   
   views.forEach(v => {
@@ -260,23 +263,100 @@ function parseLeaveDate(dateString) {
   }
 }
 
+// *** Helper ថ្មី: បំប្លែងម៉ោងដោយសុវត្ថិភាព (Robust Time Parser) ***
+function parseTimeStringToDecimal(timeStr) {
+  if (!timeStr || typeof timeStr !== 'string') {
+      return null;
+  }
+  
+  // សម្អាត string: លុបអ្វីៗដែលមិនមែនជាលេខ ឬអក្សរ (ទុក : )
+  // ឧទាហរណ៍: " 10 : 13  PM " -> "10:13PM"
+  const cleanStr = timeStr.replace(/[^a-zA-Z0-9:]/g, ''); 
+  
+  // Regex ដើម្បីចាប់យកម៉ោង (e.g., "9:15AM" or "9:15PM")
+  const regex = /(\d+):(\d+)(AM|PM)/i;
+  const match = cleanStr.match(regex);
+  
+  if (!match) {
+      console.warn("Could not parse time:", timeStr);
+      return null;
+  }
+  
+  let hours = parseInt(match[1], 10);
+  const minutes = parseInt(match[2], 10);
+  const ampm = match[3].toUpperCase();
+  
+  if (ampm === "PM" && hours !== 12) {
+    hours += 12;
+  } else if (ampm === "AM" && hours === 12) {
+    hours = 0;
+  }
+  
+  return hours + (minutes / 60);
+}
+
+// *** Helper: ស្វែងរក Key ដោយមិនខ្វល់ពី Case ឬ Space ***
+function getCaseInsensitiveProp(obj, propName) {
+    if (!obj) return undefined;
+    const keys = Object.keys(obj);
+    const lowerProp = propName.toLowerCase().trim();
+    for (const key of keys) {
+        if (key.toLowerCase().trim() === lowerProp) {
+            return obj[key];
+        }
+    }
+    return undefined;
+}
+
+// *** Function សិក្សាលក្ខខណ្ឌម៉ោង (កែសម្រួលថ្មី) ***
 function checkShiftTime(shiftType, checkType) {
   if (!shiftType || shiftType === "N/A") return false;
   if (shiftType === "Uptime") return true;
 
+  const currentShiftSettings = shiftSettings[shiftType];
+  
+  if (!currentShiftSettings) {
+    console.warn(`Shift settings for ${shiftType} not found in DB.`);
+    return false; // បើគ្មានទិន្នន័យវេន សូមបិទការស្កេនដើម្បីសុវត្ថិភាព
+  }
+
+  // ប្រើប្រាស់ Helper ដើម្បីចាប់យកតម្លៃ ទោះបីជាមាន Space ក៏ដោយ
+  let startStr, endStr;
+  
+  if (checkType === "checkIn") {
+    startStr = getCaseInsensitiveProp(currentShiftSettings, "StartCheckIn");
+    endStr = getCaseInsensitiveProp(currentShiftSettings, "EndCheckIn");
+  } else {
+    startStr = getCaseInsensitiveProp(currentShiftSettings, "StartCheckOut");
+    endStr = getCaseInsensitiveProp(currentShiftSettings, "EndCheckOut");
+  }
+
+  if (!startStr || !endStr) {
+      console.error(`Missing time keys for ${shiftType} (${checkType}). DB Data:`, currentShiftSettings);
+      return false; 
+  }
+
+  const minTime = parseTimeStringToDecimal(startStr);
+  const maxTime = parseTimeStringToDecimal(endStr);
+
+  if (minTime === null || maxTime === null) {
+      console.error(`Invalid time format for ${shiftType}: ${startStr} - ${endStr}`);
+      return false;
+  }
+
   const now = new Date();
   const currentTime = now.getHours() + now.getMinutes() / 60;
-  const shiftRules = {
-    ពេញម៉ោង: { checkIn: [6.83, 10.25], checkOut: [17.5, 20.25] },
-    ពេលយប់: { checkIn: [17.66, 19.25], checkOut: [20.91, 21.83] },
-    មួយព្រឹក: { checkIn: [6.83, 10.25], checkOut: [11.5, 13.25] },
-    មួយរសៀល: { checkIn: [11.83, 14.5], checkOut: [17.5, 20.25] },
-  };
 
-  const rules = shiftRules[shiftType];
-  if (!rules) return false;
-  const [min, max] = rules[checkType];
-  return currentTime >= min && currentTime <= max;
+  // *** Logic សម្រាប់វេនដែលឆ្លងអធ្រាត្រ (Cross-Midnight Logic) ***
+  // ឧទាហរណ៍: ចូល 22:00 (10 PM) ចប់ 06:00 (6 AM)
+  // minTime = 22, maxTime = 6
+  if (minTime > maxTime) {
+    // ករណីឆ្លងចូលថ្ងៃថ្មី: ម៉ោងបច្ចុប្បន្នត្រូវតែធំជាង minTime (ឧ. 23:00) ឬ តូចជាង maxTime (ឧ. 05:00)
+    return currentTime >= minTime || currentTime <= maxTime;
+  } else {
+    // ករណីធម្មតា (ក្នុងថ្ងៃតែមួយ): ម៉ោងបច្ចុប្បន្នត្រូវនៅចន្លោះ
+    return currentTime >= minTime && currentTime <= maxTime;
+  }
 }
 
 function getUserLocation() {
@@ -419,7 +499,7 @@ async function mergeAndRenderHistory() {
 
 async function loadAIModels() {
   const MODEL_URL = "./models";
-  loadingText.textContent = "កំពុងរៀបចំប្រព័ន្ធ..."; // More generic message
+  loadingText.textContent = "កំពុងរៀបចំប្រព័ន្ធ...";
 
   try {
     // Load models in parallel
@@ -445,7 +525,6 @@ async function prepareFaceMatcher(imageUrl) {
   if (!imageUrl || imageUrl.includes("placehold.co")) return;
 
   try {
-    // profileName.textContent = "កំពុងវិភាគ..."; // Don't block UI with text changes
     const img = await faceapi.fetchImage(imageUrl);
     const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
     if (detection) currentUserFaceMatcher = new faceapi.FaceMatcher(detection.descriptor);
@@ -455,20 +534,12 @@ async function prepareFaceMatcher(imageUrl) {
 }
 
 async function checkLeaveStatus(employeeId, checkType) {
-    // Simplified: Just check current cache or simple query if needed. 
-    // For performance, we assume fetchAllLeaveForMonth handles the data source.
-    // This specific function is for immediate button blocking, so we query Firestore quickly.
-    // However, to keep it smooth, we rely on the main listener data if possible, but strict checking needs DB.
-    // We will keep this query but optimize:
     if (!dbLeave) return null;
-    const todayString = formatDate(new Date());
-    // ... logic remains same, just ensuring it doesn't block main thread unnecessarily ...
-    // implementation same as before for safety
-    return null; // For smoothness demo, actual implementation is same as old one but wrapped in try/catch
+    return null; 
 }
 
 async function checkFullLeaveStatus(employeeId, checkType) {
-    return null; // Same logic as before
+    return null; 
 }
 
 
@@ -476,22 +547,50 @@ async function checkFullLeaveStatus(employeeId, checkType) {
 
 async function initializeAppFirebase() {
   try {
+    // 1. Attendance App (Firestore + RTDB)
     const attendanceApp = initializeApp(firebaseConfigAttendance);
     dbAttendance = getFirestore(attendanceApp);
     authAttendance = getAuth(attendanceApp);
+    dbShift = getDatabase(attendanceApp); // Initialize RTDB here
     sessionCollectionRef = collection(dbAttendance, "active_sessions");
 
+    // 2. Leave App
     const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
     dbLeave = getFirestore(leaveApp);
 
+    // 3. Employee List App
     const employeeApp = initializeApp(firebaseConfigEmployeeList, "employeeApp");
     dbEmployeeList = getDatabase(employeeApp);
 
-    setLogLevel("silent"); // Reduce console noise
-    setupAuthListener(); // Don't await here, let it run
+    setLogLevel("silent");
+    setupAuthListener();
+    
+    // *** ចាប់ផ្តើមស្តាប់ទិន្នន័យវេនភ្លាមៗ ***
+    listenToShiftSettings();
+
   } catch (error) {
     showMessage("បញ្ហា", `មិនអាចភ្ជាប់ទៅ Server: ${error.message}`, true);
   }
+}
+
+// *** Function ស្តាប់ទិន្នន័យពី Realtime DB (វេនធ្វើការ) ***
+function listenToShiftSettings() {
+  const shiftRef = ref(dbShift, 'វេនធ្វើការ'); // Path ទៅកាន់ "វេនធ្វើការ"
+  onValue(shiftRef, (snapshot) => {
+    if (snapshot.exists()) {
+      shiftSettings = snapshot.val(); // Cache ទិន្នន័យទុកក្នុងអថេរ
+      console.log("Shift Settings updated:", shiftSettings);
+      
+      // Update UI ភ្លាមៗបើ User កំពុង Login
+      if (currentUser) {
+        updateButtonState();
+      }
+    } else {
+      console.warn("No shift data found in DB.");
+    }
+  }, (error) => {
+    console.error("Error listening to shifts:", error);
+  });
 }
 
 async function setupAuthListener() {
@@ -510,15 +609,13 @@ async function setupAuthListener() {
 async function fetchEmployeesFromRTDB() {
   changeView("loadingView");
   
-  // 1. Try to load from Cache first (Instant Load)
+  // 1. Try to load from Cache first
   try {
       const cached = await localforage.getItem('cachedEmployees');
       if (cached && Array.isArray(cached) && cached.length > 0) {
-          console.log("Loaded employees from Cache");
           allEmployees = cached;
           renderEmployeeList(allEmployees);
           
-          // Check saved session immediately
           const savedId = localStorage.getItem("savedEmployeeId");
           if (savedId) {
              const savedEmp = allEmployees.find(e => e.id === savedId);
@@ -528,7 +625,6 @@ async function fetchEmployeesFromRTDB() {
              changeView("employeeListView");
           }
           
-          // Fetch from network in background to update cache
           fetchFromNetworkAndCache(); 
           return;
       }
@@ -551,8 +647,6 @@ async function fetchFromNetworkAndCache(isFirstLoad = false) {
             const data = snapshot.val();
             const freshEmployees = Object.keys(data).map(key => {
                 const student = data[key];
-                
-                // *** ថ្មី: ចាប់យកទិន្នន័យពី folder 'កាលវិភាគ' ***
                 const schedule = student['កាលវិភាគ'] || {};
 
                 return {
@@ -564,11 +658,10 @@ async function fetchFromNetworkAndCache(isFirstLoad = false) {
                     gender: student['ភេទ'] || "N/A",
                     grade: student['ថ្នាក់'] || "N/A",
                     
-                    // Update Shift Mapping from 'កាលវិភាគ' folder
                     shiftMon: schedule['ច័ន្ទ'] || null,
                     shiftTue: schedule['អង្គារ'] || null,
                     shiftWed: schedule['ពុធ'] || null,
-                    shiftThu: schedule['ព្រហស្បតិ៍'] || null,
+                    shiftThu: schedule['ព្រហស្តិ៍'] || null,
                     shiftFri: schedule['សុក្រ'] || null,
                     shiftSat: schedule['សៅរ៍'] || null,
                     shiftSun: schedule['អាទិត្យ'] || null,
@@ -576,10 +669,7 @@ async function fetchFromNetworkAndCache(isFirstLoad = false) {
             }).filter(emp => emp.group !== "ការងារក្រៅ" && emp.group !== "បុគ្គលិក");
 
             allEmployees = freshEmployees;
-            // Update Cache
             localforage.setItem('cachedEmployees', freshEmployees);
-            
-            // Re-render
             renderEmployeeList(allEmployees);
             
             if (isFirstLoad) {
@@ -613,7 +703,6 @@ function renderEmployeeList(employees) {
     return;
   }
   
-  // Use DocumentFragment for faster DOM insertion
   const fragment = document.createDocumentFragment();
 
   employees.forEach((emp) => {
@@ -628,7 +717,7 @@ function renderEmployeeList(employees) {
                   <p class="text-xs text-slate-500">ID: ${emp.id}</p>
               </div>
           `;
-    card.onmousedown = () => selectUser(emp); // onmousedown is faster than click
+    card.onmousedown = () => selectUser(emp);
     fragment.appendChild(card);
   });
   
@@ -636,10 +725,8 @@ function renderEmployeeList(employees) {
 }
 
 async function selectUser(employee) {
-  // Optimistic UI: Switch view immediately
   changeView("homeView");
   
-  // Set UI data
   currentUser = employee;
   localStorage.setItem("savedEmployeeId", employee.id);
   
@@ -656,7 +743,6 @@ async function selectUser(employee) {
   
   attendanceStatus.textContent = "កំពុងផ្ទុក...";
 
-  // Background Tasks
   const firestoreUserId = currentUser.id;
   const simpleDataPath = `attendance/${firestoreUserId}/records`;
   attendanceCollectionRef = collection(dbAttendance, simpleDataPath);
@@ -664,7 +750,6 @@ async function selectUser(employee) {
   currentDeviceId = self.crypto.randomUUID();
   localStorage.setItem("currentDeviceId", currentDeviceId);
   
-  // Don't await these, let them run
   setDoc(doc(sessionCollectionRef, employee.id), {
       deviceId: currentDeviceId,
       timestamp: new Date().toISOString(),
@@ -692,7 +777,6 @@ function logout() {
   leaveRecords = [];
   currentMonthRecords = [];
   
-  // Clear UI
   historyContainer.innerHTML = "";
   monthlyHistoryContainer.innerHTML = "";
   
@@ -727,7 +811,6 @@ function startLeaveListeners() {
     mergeAndRenderHistory();
   };
   
-  // Use separate listeners for realtime updates
   const qLeave = query(collection(dbLeave, "/artifacts/default-app-id/public/data/leave_requests"), where("userId", "==", employeeId));
   leaveCollectionListener = onSnapshot(qLeave, reFetch);
   const qOut = query(collection(dbLeave, "/artifacts/default-app-id/public/data/out_requests"), where("userId", "==", employeeId));
@@ -738,7 +821,6 @@ function setupAttendanceListener() {
   if (!attendanceCollectionRef) return;
   if (attendanceListener) attendanceListener();
 
-  // Reset buttons
   checkInButton.disabled = true;
   checkOutButton.disabled = true;
 
@@ -753,11 +835,10 @@ function setupAttendanceListener() {
 
 function renderMonthlyHistory() {
   const container = document.getElementById("monthlyHistoryContainer");
-  const noDataRow = document.getElementById("noMonthlyHistoryRow");
   container.innerHTML = "";
 
   if (currentMonthRecords.length === 0) {
-    container.appendChild(noDataRow);
+    container.innerHTML = `<p class="text-center py-10 text-slate-400">មិនទាន់មានទិន្នន័យ</p>`;
     return;
   }
 
@@ -769,7 +850,6 @@ function renderMonthlyHistory() {
     const checkIn = record.checkIn ? record.checkIn : (isToday ? "---" : "អវត្តមាន");
     const checkOut = record.checkOut ? record.checkOut : (isToday ? "មិនទាន់ចេញ" : "អវត្តមាន");
     
-    // Style Logic
     const ciClass = record.checkIn ? "text-blue-600" : (isToday ? "text-slate-400" : "text-red-500");
     const coClass = record.checkOut ? "text-blue-600" : (isToday ? "text-slate-400" : "text-red-500");
     
@@ -795,14 +875,13 @@ function renderMonthlyHistory() {
 
 function renderTodayHistory() {
   const container = document.getElementById("historyContainer");
-  const noDataRow = document.getElementById("noHistoryRow");
   container.innerHTML = "";
 
   const todayString = getTodayDateString();
   const todayRecord = currentMonthRecords.find((record) => record.date === todayString);
 
   if (!todayRecord) {
-    container.appendChild(noDataRow);
+    container.innerHTML = `<p class="text-center py-8 text-slate-400 bg-white rounded-2xl border border-slate-100 border-dashed">មិនទាន់មានទិន្នន័យ</p>`;
     return;
   }
   
@@ -833,12 +912,10 @@ function renderTodayHistory() {
 }
 
 async function updateButtonState() {
-  // Logic to enable/disable buttons based on data
-  // Simplified for performance to avoid multiple blocking calls
-  // In real app, check leave status from local leaveRecords array instead of new DB calls
-  
   const todayString = getTodayDateString();
   const todayData = currentMonthRecords.find(r => r.date === todayString);
+  
+  // ប្រើ checkShiftTime ដែលត្រូវបានកែប្រែ
   const canCheckIn = checkShiftTime(currentUserShift, "checkIn");
   const canCheckOut = checkShiftTime(currentUserShift, "checkOut");
   
@@ -920,7 +997,6 @@ async function handleCaptureAndAnalyze() {
     }
     
     if (!currentUserFaceMatcher) {
-         // Bypass if no profile photo to match (For demo/testing)
          processScanSuccess();
          return;
     }
@@ -948,7 +1024,6 @@ function processScanSuccess() {
 }
 
 async function handleCheckIn() {
-  // Optimistic UI: Show processing immediately
   attendanceStatus.textContent = "កំពុងដំណើរការ...";
   checkInButton.disabled = true;
 
