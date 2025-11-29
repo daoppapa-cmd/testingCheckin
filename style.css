@@ -2,6 +2,16 @@
 body {
     font-family: "Kantumruy Pro", sans-serif;
     -webkit-tap-highlight-color: transparent;
+    overflow: hidden; /* ការពារការ Scroll លើ Body */
+}
+
+/* Optimization: លុបបំបាត់ការយឺតយ៉ាវពេលចុចលើទូរស័ព្ទ */
+button, 
+.nav-button, 
+input, 
+select, 
+textarea {
+    touch-action: manipulation;
 }
 
 /* Hide Scrollbar but keep functionality */
@@ -11,10 +21,11 @@ body {
 .no-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
-    -webkit-overflow-scrolling: touch; /* បន្ថែម: ជួយឱ្យ Scroll រលូនលើ iOS */
+    -webkit-overflow-scrolling: touch; /* ជួយឱ្យ Scroll រលូនលើ iOS */
+    scroll-behavior: smooth;
 }
 
-/* Animations */
+/* Animations - Optimized with will-change */
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
@@ -38,11 +49,13 @@ body {
 }
 
 .view {
-    animation: fadeIn 0.4s ease-out forwards;
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    will-change: transform, opacity; /* Hardware Acceleration Hint */
 }
 
 .animate-scan {
     animation: scan 2s linear infinite;
+    will-change: top, opacity;
 }
 
 .animate-pulse-slow {
@@ -61,7 +74,8 @@ body {
 
 /* Modal Transitions */
 .modal {
-    transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
+    transition: opacity 0.2s ease-out, backdrop-filter 0.2s ease-out;
+    will-change: opacity;
 }
 .modal-hidden {
     opacity: 0;
@@ -73,9 +87,10 @@ body {
 }
 .modal-visible > div {
     animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    will-change: transform, opacity;
 }
 @keyframes scaleIn {
-    from { transform: scale(0.9); opacity: 0; }
+    from { transform: scale(0.95); opacity: 0; }
     to { transform: scale(1); opacity: 1; }
 }
 
@@ -96,14 +111,11 @@ body {
 }
 
 /* --- Responsive Table Styling (Card Style) --- */
-/* Logic នៅតែរក្សាដដែល ប៉ុន្តែ Design ស្អាតជាងមុន។
-   រាល់ Row ក្នុង History នឹងក្លាយជា Card ស្អាតមួយ។
-*/
-
 #historyContainer > div, 
 #monthlyHistoryContainer > div {
-    /* Base Card Style override applied by JS, adding extra finesse here */
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.1s ease, box-shadow 0.1s ease;
+    /* Hardware acceleration for smoother lists */
+    transform: translateZ(0); 
 }
 
 #historyContainer > div:active, 
@@ -112,6 +124,8 @@ body {
 }
 
 /* --- Layout Fixes (ដំណោះស្រាយបញ្ហា Scroll) --- */
-#historyView {
-    overflow: hidden; /* សំខាន់: បង្ខំឱ្យ View នៅក្នុងទំហំកំណត់ ដើម្បីឱ្យ Scrollbar ខាងក្នុងដំណើរការ */
+#historyView, #homeView, #employeeListView {
+    overflow: hidden; /* បង្ខំឱ្យ View នៅក្នុងទំហំកំណត់ ដើម្បីឱ្យ Inner Scrollbar ដំណើរការ */
+    display: flex;
+    flex-direction: column;
 }
