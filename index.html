@@ -106,7 +106,6 @@
         </div>
 
         <!-- Top Bar -->
-        <!-- កែសម្រួល៖ បន្ថយ padding top និង bottom -->
         <div class="relative z-10 px-6 pt-10 pb-2 flex justify-between items-start">
             <div class="text-white">
                 <p class="text-primary-100 text-xs font-medium mb-0.5 opacity-90">សួស្តី,</p>
@@ -123,11 +122,10 @@
         </div>
 
         <!-- Scrollable Content -->
-        <!-- កែសម្រួល៖ បន្ថយ pt-10 មកត្រឹម pt-4 ដើម្បីលើកមាតិកាឡើងលើ -->
-        <div class="relative z-10 flex-1 overflow-y-auto px-6 pb-24 no-scrollbar pt-4">
+        <!-- កែសម្រួល៖ បង្កើន pt-4 ទៅ pt-12 ដើម្បីកុំឱ្យរូប Profile ត្រូវគេកាត់ -->
+        <div class="relative z-10 flex-1 overflow-y-auto px-6 pb-24 no-scrollbar pt-12">
             
             <!-- Profile Card -->
-            <!-- កែសម្រួល៖ បន្ថយ padding និង margin ដើម្បីឱ្យខ្លីជាងមុន -->
             <div class="bg-white rounded-[1.8rem] p-4 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.06)] mb-3 relative border border-gray-50">
                 <div class="absolute top-3 right-4">
                     <span id="profileId" class="text-[9px] font-bold text-slate-400 bg-gray-50 border border-gray-100 px-2 py-0.5 rounded-md">ID: ...</span>
@@ -135,7 +133,6 @@
                 
                 <div class="flex flex-col items-center -mt-8">
                     <div class="relative">
-                        <!-- កែសម្រួល៖ បន្ថយទំហំរូបភាពបន្តិច -->
                         <div class="w-20 h-20 rounded-full p-1 bg-white shadow-lg ring-4 ring-primary-50">
                             <img id="profileImage" src="" class="w-full h-full rounded-full object-cover bg-gray-200" />
                         </div>
@@ -167,12 +164,10 @@
             </div>
 
             <!-- Dynamic Buttons -->
-            <!-- កែសម្រួល៖ បន្ថយ margin-bottom -->
             <div id="dynamicActionArea" class="mb-3">
                 <!-- Action Button -->
                 <div id="actionButtonContainer" class="hidden transform transition-all duration-300">
                     <button id="mainActionButton" class="w-full group relative overflow-hidden rounded-[1.8rem] p-1 shadow-lg shadow-primary-200/40 transition-all active:scale-95 hover:shadow-xl">
-                        <!-- កែសម្រួល៖ បន្ថយ padding ក្នុងប៊ូតុង -->
                         <div class="relative bg-white rounded-[1.6rem] p-3.5 overflow-hidden">
                             <div id="actionBtnBg" class="absolute inset-0 bg-gradient-to-r from-primary-500 to-indigo-600 opacity-10 transition-all duration-500"></div>
                             <div class="relative z-10 flex items-center justify-between">
@@ -200,7 +195,7 @@
                 </div>
 
                 <!-- No Shift -->
-                <div id="noShiftContainer" class="hidden text-center py-6">
+                <div id="noShiftContainer" class="hidden text-center py-8">
                     <div class="w-full bg-white/50 border-2 border-dashed border-gray-200 rounded-[1.5rem] p-4 flex flex-col items-center">
                         <div class="w-14 h-14 bg-blue-50 rounded-full flex items-center justify-center mb-2">
                             <i class="ph-duotone ph-calendar-x text-2xl text-blue-300"></i>
