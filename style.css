@@ -1,131 +1,136 @@
-/* Global Reset & Base */
+/* Base */
 body {
-    font-family: "Kantumruy Pro", sans-serif;
-    -webkit-tap-highlight-color: transparent;
-    overflow: hidden; /* ការពារការ Scroll លើ Body */
+  font-family: "Kantumruy Pro", sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  overflow: hidden; /* Prevent body scroll */
 }
 
-/* Optimization: លុបបំបាត់ការយឺតយ៉ាវពេលចុចលើទូរស័ព្ទ */
-button, 
-.nav-button, 
-input, 
-select, 
-textarea {
-    touch-action: manipulation;
-}
-
-/* Hide Scrollbar but keep functionality */
+/* Utilities */
 .no-scrollbar::-webkit-scrollbar {
-    display: none;
+  display: none;
 }
 .no-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch; /* ជួយឱ្យ Scroll រលូនលើ iOS */
-    scroll-behavior: smooth;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch; /* Important for iOS momentum scrolling */
 }
 
-/* Animations - Optimized with will-change */
+#videoElement,
+#cameraCanvas {
+  transform: scaleX(-1);
+}
+
+/* Animation Keyframes */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes slideUp {
-    from { transform: translateY(100%); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 @keyframes scan {
-    0% { top: 30%; opacity: 0; }
-    20% { opacity: 1; }
-    80% { opacity: 1; }
-    100% { top: 70%; opacity: 0; }
+  0% {
+    top: 10%;
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    top: 90%;
+    opacity: 0;
+  }
 }
 
-@keyframes pulse-slow {
-    0%, 100% { transform: scale(1); opacity: 0.2; }
-    50% { transform: scale(1.1); opacity: 0.1; }
+@keyframes pulse-soft {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
 }
 
-.view {
-    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-    will-change: transform, opacity; /* Hardware Acceleration Hint */
-}
-
-.animate-scan {
-    animation: scan 2s linear infinite;
-    will-change: top, opacity;
-}
-
-.animate-pulse-slow {
-    animation: pulse-slow 3s infinite;
-}
-
-/* Loader */
-.loader {
-    border-top-color: #2563EB; /* Blue 600 */
-    animation: spin 1s linear infinite;
-}
 @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
-/* Modal Transitions */
+@keyframes popIn {
+  from {
+    transform: scale(0.9) translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+/* --- Layout & Scroll Fixes (កែសម្រួលបញ្ហា Scroll) --- */
+.view {
+  animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: transform, opacity;
+  /* បង្ខំឱ្យ View យកកម្ពស់ពេញលេញ */
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* កំណត់ទៅលើ Container ដែលត្រូវ Scroll (នៅក្នុង Home និង History) */
+#homeView > div.overflow-y-auto,
+#historyView > div.overflow-y-auto,
+#employeeListContent {
+  flex: 1 1 0%; /* flex-grow: 1, flex-shrink: 1, flex-basis: 0% */
+  min-height: 0; /* សំខាន់បំផុតសម្រាប់ឱ្យ Scroll ដំណើរការក្នុង Flexbox */
+  height: 100%;
+}
+
+/* Custom Loader */
+.loader {
+  border-top-color: #2563eb;
+  animation: spin 0.8s linear infinite;
+}
+
+/* Modal */
 .modal {
-    transition: opacity 0.2s ease-out, backdrop-filter 0.2s ease-out;
-    will-change: opacity;
+  transition: opacity 0.25s ease, backdrop-filter 0.25s ease;
 }
 .modal-hidden {
-    opacity: 0;
-    pointer-events: none;
+  opacity: 0;
+  pointer-events: none;
 }
 .modal-visible {
-    opacity: 1;
-    pointer-events: auto;
+  opacity: 1;
+  pointer-events: auto;
 }
 .modal-visible > div {
-    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-    will-change: transform, opacity;
-}
-@keyframes scaleIn {
-    from { transform: scale(0.95); opacity: 0; }
-    to { transform: scale(1); opacity: 1; }
+  animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* Navigation Active State */
 .nav-button.active-nav {
-    color: #2563EB; /* Primary Blue */
-    background-color: #EFF6FF; /* Blue 50 */
-    box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.05);
+  color: #2563eb;
+  background-color: #f8fafc;
+  box-shadow: inset 0 2px 4px 0 rgba(0, 0, 0, 0.02);
 }
 .nav-button.active-nav i {
-    filter: drop-shadow(0 2px 4px rgba(37, 99, 235, 0.2));
+  color: #2563eb;
 }
 
-/* Camera Flip */
-#videoElement, #cameraCanvas {
-    transform: scaleX(-1);
-    -webkit-transform: scaleX(-1);
-}
-
-/* --- Responsive Table Styling (Card Style) --- */
-#historyContainer > div, 
-#monthlyHistoryContainer > div {
-    transition: transform 0.1s ease, box-shadow 0.1s ease;
-    /* Hardware acceleration for smoother lists */
-    transform: translateZ(0); 
-}
-
-#historyContainer > div:active, 
-#monthlyHistoryContainer > div:active {
-    transform: scale(0.98);
-}
-
-/* --- Layout Fixes (ដំណោះស្រាយបញ្ហា Scroll) --- */
-#historyView, #homeView, #employeeListView {
-    overflow: hidden; /* បង្ខំឱ្យ View នៅក្នុងទំហំកំណត់ ដើម្បីឱ្យ Inner Scrollbar ដំណើរការ */
-    display: flex;
-    flex-direction: column;
+/* Active Button Animation */
+.btn-pulse {
+  animation: pulse-soft 2s infinite;
 }
