@@ -1,4 +1,7 @@
 // 1. នាំចូល Firebase modules
+// script.js (ផ្នែកខាងលើ)
+import { studentData } from "./name.js"; // <--- បន្ថែមថ្មី
+// ... (imports ពី Firebase ដទៃទៀតទុកនៅដដែល) ...
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
   getAuth,
@@ -827,77 +830,51 @@ function checkAutoLogin() {
     }
 }
 
-// រកមើល function នេះក្នុង script.js ហើយជំនួសដោយកូដនេះ
-async function fetchFromNetwork(isFirst = false) {
-  try {
-    const dbRef = ref(dbEmployeeList, "students");
-    const snapshot = await get(dbRef);
 
-    if (snapshot.exists()) {
-      // ករណីមានទិន្នន័យ (ដូចកូដចាស់)
-      const data = snapshot.val();
-      allEmployees = Object.keys(data)
-        .map((key) => {
-          const student = data[key];
-          const schedule = student["កាលវិភាគ"] || {};
-          return {
-            id: String(key).trim(),
-            name: student["ឈ្មោះ"] || "N/A",
-            department: student["ផ្នែកការងារ"] || "N/A",
-            photoUrl: student["រូបថត"] || null,
-            group: student["ក្រុម"] || "N/A",
-            gender: student["ភេទ"] || "N/A",
-            grade: student["ថ្នាក់"] || "N/A",
-            shiftMon: schedule["ច័ន្ទ"] || null,
-            shiftTue: schedule["អង្គារ"] || null,
-            shiftWed: schedule["ពុធ"] || null,
-            shiftThu: schedule["ព្រហស្បតិ៍"] || null,
-            shiftFri: schedule["សុក្រ"] || null,
-            shiftSat: schedule["សៅរ៍"] || null,
-            shiftSun: schedule["អាទិត្យ"] || null,
-          };
-        })
-        .filter(
-          (emp) => emp.group !== "ការងារក្រៅ" && emp.group !== "បុគ្គលិក"
-        );
+// ជំនួស function fetchFromNetwork និង fetchEmployeesFromRTDB ដោយកូដនេះ៖
 
-      // អាប់ដេត Cache ថ្មី
-      await localforage.setItem("cachedEmployees", allEmployees);
-      
-      // អាប់ដេត UI ភ្លាមៗ (កុំឱ្យនៅសល់ឈ្មោះចាស់)
-      renderEmployeeList(allEmployees);
-
-      if (isFirst) checkAutoLogin();
-
-    } else {
-      // === ចំណុចសំខាន់ដែលត្រូវបន្ថែម (FIX) ===
-      // ករណីគ្មានទិន្នន័យលើ Server (snapshot មិន exist)
-      console.log("Data deleted from server. Clearing cache...");
-      
-      allEmployees = []; // ១. លុបទិន្នន័យក្នុង RAM
-      await localforage.removeItem("cachedEmployees"); // ២. លុបទិន្នន័យក្នុង Cache (Storage)
-      renderEmployeeList([]); // ៣. អាប់ដេត UI ឱ្យទទេ
-      
-      if (isFirst) changeView("employeeListView");
-    }
-  } catch (e) {
-    console.error("Fetch error:", e);
-    if (isFirst) changeView("employeeListView");
-  }
-}
-
-async function fetchEmployeesFromRTDB() {
+function loadEmployeesFromLocal() {
+  // បិទ Loading View
   changeView("loadingView");
+  
   try {
-      const cached = await localforage.getItem('cachedEmployees');
-      if (cached && Array.isArray(cached) && cached.length > 0) {
-          allEmployees = cached;
-          checkAutoLogin();
-          fetchFromNetwork(); 
-      } else {
-          fetchFromNetwork(true);
-      }
-  } catch (err) { fetchFromNetwork(true); }
+    // យកទិន្នន័យពី name.js មកប្រើផ្ទាល់
+    allEmployees = Object.keys(studentData).map((key) => {
+      const student = studentData[key];
+      const schedule = student["កាលវិភាគ"] || {};
+
+      return {
+        id: String(key).trim(),
+        name: student["ឈ្មោះ"] || "N.A",
+        department: student["ផ្នែកការងារ"] || "N/A",
+        photoUrl: student["រូបថត"] || null,
+        group: student["ក្រុម"] || "N/A",
+        gender: student["ភេទ"] || "N/A",
+        grade: student["ថ្នាក់"] || "N/A",
+        
+        // Mapping ថ្ងៃតាមអក្ខរាវិរុទ្ធក្នុង name.js របស់អ្នក
+        shiftMon: schedule["ចន្ទ"] || null, 
+        shiftTue: schedule["អង្គារ៍"] || schedule["អង្គារ"] || null,
+        shiftWed: schedule["ពុធ"] || null,
+        shiftThu: schedule["ព្រហស្បត្តិ៍"] || schedule["ព្រហស្បតិ៍"] || null,
+        shiftFri: schedule["សុក្រ"] || null,
+        shiftSat: schedule["សៅរ៍"] || null,
+        shiftSun: schedule["អាទិត្យ"] || null,
+      };
+    }).filter(
+      (emp) => emp.group !== "ការងារក្រៅ" && emp.group !== "បុគ្គលិក"
+    );
+
+    // បង្ហាញទិន្នន័យ
+    renderEmployeeList(allEmployees);
+    
+    // ពិនិត្យមើលថាធ្លាប់ Login ឬនៅ
+    checkAutoLogin();
+
+  } catch (err) {
+    console.error("Error loading local data:", err);
+    changeView("employeeListView");
+  }
 }
 
 function setupAuthListener() {
@@ -914,23 +891,25 @@ function setupAuthListener() {
 
 async function initializeAppFirebase() {
   try {
-    const attendanceApp = initializeApp(firebaseConfigAttendance);
-    dbAttendance = getFirestore(attendanceApp);
-    authAttendance = getAuth(attendanceApp);
-    dbShift = getDatabase(attendanceApp);
-    sessionCollectionRef = collection(dbAttendance, "active_sessions");
+    // ... (កូដ Attendance និង Leave ទុកដដែល) ...
 
-    const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
-    dbLeave = getFirestore(leaveApp);
-
-    const employeeApp = initializeApp(firebaseConfigEmployeeList, "employeeApp");
+    // --- លុប ឬ Comment ផ្នែក Employee List ចោល ---
+    /* const employeeApp = initializeApp(firebaseConfigEmployeeList, "employeeApp");
     dbEmployeeList = getDatabase(employeeApp);
+    */
+    // ------------------------------------------------
 
     setLogLevel("silent");
-    
+
     setupAuthListener();
     listenToShiftSettings();
-  } catch (error) { showMessage("Error", error.message, true); }
+    
+    // ហៅ function ទាញទិន្នន័យពី Local មកប្រើ
+    loadEmployeesFromLocal(); // <--- ហៅ function ថ្មីនៅទីនេះ
+
+  } catch (error) {
+    showMessage("Error", error.message, true);
+  }
 }
 
 // 12. DOM Event Listeners
