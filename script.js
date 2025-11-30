@@ -827,37 +827,63 @@ function checkAutoLogin() {
     }
 }
 
+// រកមើល function នេះក្នុង script.js ហើយជំនួសដោយកូដនេះ
 async function fetchFromNetwork(isFirst = false) {
-    try {
-        const dbRef = ref(dbEmployeeList, "students");
-        const snapshot = await get(dbRef);
-        if (snapshot.exists()) {
-            const data = snapshot.val();
-            allEmployees = Object.keys(data).map(key => {
-                const student = data[key];
-                const schedule = student['កាលវិភាគ'] || {};
-                return {
-                    id: String(key).trim(),
-                    name: student['ឈ្មោះ'] || "N/A",
-                    department: student['ផ្នែកការងារ'] || "N/A",
-                    photoUrl: student['រូបថត'] || null,
-                    group: student['ក្រុម'] || "N/A",
-                    gender: student['ភេទ'] || "N/A",
-                    grade: student['ថ្នាក់'] || "N/A",
-                    shiftMon: schedule['ច័ន្ទ'] || null,
-                    shiftTue: schedule['អង្គារ'] || null,
-                    shiftWed: schedule['ពុធ'] || null,
-                    shiftThu: schedule['ព្រហស្បតិ៍'] || null,
-                    shiftFri: schedule['សុក្រ'] || null,
-                    shiftSat: schedule['សៅរ៍'] || null,
-                    shiftSun: schedule['អាទិត្យ'] || null,
-                };
-            }).filter(emp => emp.group !== "ការងារក្រៅ" && emp.group !== "បុគ្គលិក");
-            
-            localforage.setItem('cachedEmployees', allEmployees);
-            if(isFirst) checkAutoLogin();
-        } else if (isFirst) changeView("employeeListView");
-    } catch (e) { if(isFirst) changeView("employeeListView"); }
+  try {
+    const dbRef = ref(dbEmployeeList, "students");
+    const snapshot = await get(dbRef);
+
+    if (snapshot.exists()) {
+      // ករណីមានទិន្នន័យ (ដូចកូដចាស់)
+      const data = snapshot.val();
+      allEmployees = Object.keys(data)
+        .map((key) => {
+          const student = data[key];
+          const schedule = student["កាលវិភាគ"] || {};
+          return {
+            id: String(key).trim(),
+            name: student["ឈ្មោះ"] || "N/A",
+            department: student["ផ្នែកការងារ"] || "N/A",
+            photoUrl: student["រូបថត"] || null,
+            group: student["ក្រុម"] || "N/A",
+            gender: student["ភេទ"] || "N/A",
+            grade: student["ថ្នាក់"] || "N/A",
+            shiftMon: schedule["ច័ន្ទ"] || null,
+            shiftTue: schedule["អង្គារ"] || null,
+            shiftWed: schedule["ពុធ"] || null,
+            shiftThu: schedule["ព្រហស្បតិ៍"] || null,
+            shiftFri: schedule["សុក្រ"] || null,
+            shiftSat: schedule["សៅរ៍"] || null,
+            shiftSun: schedule["អាទិត្យ"] || null,
+          };
+        })
+        .filter(
+          (emp) => emp.group !== "ការងារក្រៅ" && emp.group !== "បុគ្គលិក"
+        );
+
+      // អាប់ដេត Cache ថ្មី
+      await localforage.setItem("cachedEmployees", allEmployees);
+      
+      // អាប់ដេត UI ភ្លាមៗ (កុំឱ្យនៅសល់ឈ្មោះចាស់)
+      renderEmployeeList(allEmployees);
+
+      if (isFirst) checkAutoLogin();
+
+    } else {
+      // === ចំណុចសំខាន់ដែលត្រូវបន្ថែម (FIX) ===
+      // ករណីគ្មានទិន្នន័យលើ Server (snapshot មិន exist)
+      console.log("Data deleted from server. Clearing cache...");
+      
+      allEmployees = []; // ១. លុបទិន្នន័យក្នុង RAM
+      await localforage.removeItem("cachedEmployees"); // ២. លុបទិន្នន័យក្នុង Cache (Storage)
+      renderEmployeeList([]); // ៣. អាប់ដេត UI ឱ្យទទេ
+      
+      if (isFirst) changeView("employeeListView");
+    }
+  } catch (e) {
+    console.error("Fetch error:", e);
+    if (isFirst) changeView("employeeListView");
+  }
 }
 
 async function fetchEmployeesFromRTDB() {
