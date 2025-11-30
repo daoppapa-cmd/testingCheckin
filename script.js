@@ -1,6 +1,4 @@
-// ==========================================
-// 1. IMPORTS & SETUP
-// ==========================================
+// 1. នាំចូល Firebase modules
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
   getAuth,
@@ -27,9 +25,7 @@ import {
   onValue
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
-// ==========================================
-// 2. GLOBAL VARIABLES
-// ==========================================
+// 2. Global Variables
 let dbAttendance, dbLeave, dbEmployeeList, dbShift, authAttendance;
 let allEmployees = [];
 let currentMonthRecords = [];
@@ -50,7 +46,8 @@ let modelsLoaded = false;
 let currentUserFaceMatcher = null;
 let currentScanAction = null;
 let videoStream = null;
-const FACE_MATCH_THRESHOLD = 0.5;
+let isScanning = false; // Flag សម្រាប់គ្រប់គ្រងការ Loop ស្កេន
+const FACE_MATCH_THRESHOLD = 0.45;
 
 const durationMap = {
   មួយថ្ងៃកន្លះ: 1.5, ពីរថ្ងៃ: 2, ពីរថ្ងៃកន្លះ: 2.5, បីថ្ងៃ: 3, បីថ្ងៃកន្លះ: 3.5,
@@ -58,9 +55,7 @@ const durationMap = {
   ប្រាំមួយថ្ងៃ: 6, ប្រាំមួយថ្ងៃកន្លះ: 6.5, ប្រាំពីរថ្ងៃ: 7,
 };
 
-// ==========================================
-// 3. CONFIGURATIONS
-// ==========================================
+// 3. Firebase Configurations
 const firebaseConfigAttendance = {
   apiKey: "AIzaSyCgc3fq9mDHMCjTRRHD3BPBL31JkKZgXFc",
   authDomain: "checkme-10e18.firebaseapp.com",
@@ -98,9 +93,7 @@ const allowedAreaCoords = [
   [11.41370399757057, 104.7634714387206],
 ];
 
-// ==========================================
-// 4. DOM ELEMENTS
-// ==========================================
+// 4. DOM Elements
 const loadingView = document.getElementById("loadingView");
 const loadingText = document.getElementById("loadingText");
 const employeeListView = document.getElementById("employeeListView");
@@ -121,9 +114,7 @@ const profileDepartment = document.getElementById("profileDepartment");
 const profileGroup = document.getElementById("profileGroup");
 const profileShift = document.getElementById("profileShift");
 
-// Smart UI Elements
 const actionButtonContainer = document.getElementById("actionButtonContainer");
-const mainActionButton = document.getElementById("mainActionButton");
 const actionBtnBg = document.getElementById("actionBtnBg");
 const actionBtnTitle = document.getElementById("actionBtnTitle");
 const actionBtnSubtitle = document.getElementById("actionBtnSubtitle");
@@ -156,18 +147,13 @@ const captureButton = document.getElementById("captureButton");
 const employeeListHeader = document.getElementById("employeeListHeader");
 const employeeListContent = document.getElementById("employeeListContent");
 
-// ==========================================
-// 5. HELPER FUNCTIONS
-// ==========================================
-
+// 5. Helper Functions & UI Logic
 function changeView(viewId) {
   [loadingView, employeeListView, homeView, historyView].forEach(v => {
       if (v) v.style.display = "none";
   });
-  
   const view = document.getElementById(viewId);
   if (view) view.style.display = "flex";
-
   if (viewId === "homeView" || viewId === "historyView") {
     footerNav.style.display = "block";
   } else {
@@ -178,7 +164,6 @@ function changeView(viewId) {
 function showMessage(title, message, isError = false) {
   modalTitle.textContent = title;
   modalMessage.textContent = message;
-  
   if (isError) {
       if(modalIcon) {
         modalIcon.innerHTML = '<i class="ph-duotone ph-warning-circle text-3xl text-red-500"></i>';
@@ -190,7 +175,6 @@ function showMessage(title, message, isError = false) {
         modalIcon.className = "w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4";
       }
   }
-  
   modalConfirmButton.onclick = () => hideMessage();
   modalCancelButton.style.display = "none";
   customModal.classList.remove("modal-hidden");
@@ -200,16 +184,13 @@ function showMessage(title, message, isError = false) {
 function showConfirmation(title, message, confirmText, onConfirm) {
   modalTitle.textContent = title;
   modalMessage.textContent = message;
-  
   if(modalIcon) {
     modalIcon.innerHTML = '<i class="ph-duotone ph-question text-3xl text-orange-500"></i>';
     modalIcon.className = "w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4";
   }
-
   modalConfirmButton.textContent = confirmText;
-  modalCancelButton.style.display = "block";
+  modalCancelButton.style.display = "block"; 
   modalConfirmButton.onclick = onConfirm;
-  
   customModal.classList.remove("modal-hidden");
   customModal.classList.add("modal-visible");
 }
@@ -298,11 +279,28 @@ function checkShiftTime(shiftType, checkType) {
 
 function getUserLocation() {
   return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) reject(new Error("Not supported"));
+    if (!navigator.geolocation) {
+      reject(new Error("កម្មវិធីមិនគាំទ្រការប្រើប្រាស់ទីតាំងលើឧបករណ៍នេះទេ"));
+      return;
+    }
     navigator.geolocation.getCurrentPosition(
       (p) => resolve(p.coords),
-      (e) => reject(new Error("សូមបើក Location")),
-      { enableHighAccuracy: true, timeout: 8000, maximumAge: 0 }
+      (error) => {
+          let msg = "សូមបើក Location";
+          switch(error.code) {
+              case error.PERMISSION_DENIED:
+                  msg = "អ្នកបានបិទការប្រើប្រាស់ទីតាំង (Location Denied)។ សូមចូលទៅកាន់ Setting > Site Settings > Allow Location។";
+                  break;
+              case error.POSITION_UNAVAILABLE:
+                  msg = "មិនអាចស្វែងរកទីតាំងបានទេ។ សូមពិនិត្យ GPS។";
+                  break;
+              case error.TIMEOUT:
+                  msg = "ការស្វែងរកទីតាំងចំណាយពេលយូរពេក។";
+                  break;
+          }
+          reject(new Error(msg));
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   });
 }
@@ -320,14 +318,10 @@ function isInsideArea(lat, lon) {
   return isInside;
 }
 
-// ==========================================
-// 6. DATA PROCESSING & LOGIC
-// ==========================================
-
+// 6. Data Processing
 function mergeAttendanceAndLeave(attendanceRecords, leaveRecords) {
   const mergedMap = new Map();
   attendanceRecords.forEach(r => mergedMap.set(r.date, { ...r }));
-  // Leave logic would merge here, simplified for now
   return Array.from(mergedMap.values());
 }
 
@@ -346,10 +340,7 @@ async function mergeAndRenderHistory() {
   updateButtonState(); 
 }
 
-// ==========================================
-// 7. RENDERING FUNCTIONS
-// ==========================================
-
+// 7. Rendering Functions
 function renderTodayHistory() {
   const container = document.getElementById("historyContainer");
   if (!container) return;
@@ -403,7 +394,7 @@ function renderMonthlyHistory() {
 
   currentMonthRecords.forEach((record) => {
     const isToday = record.date === getTodayDateString();
-    if(isToday) return; // Skip today
+    if(isToday) return;
 
     const checkIn = record.checkIn ? record.checkIn : "អវត្តមាន";
     const checkOut = record.checkOut ? record.checkOut : "អវត្តមាន";
@@ -464,10 +455,7 @@ function renderEmployeeList(employees) {
   container.appendChild(fragment);
 }
 
-// ==========================================
-// 8. LISTENER SETUP FUNCTIONS
-// ==========================================
-
+// 8. Listener Setup Functions
 function setupAttendanceListener() {
   if (!attendanceCollectionRef) return;
   if (attendanceListener) attendanceListener();
@@ -488,7 +476,6 @@ function startLeaveListeners() {
 
   const employeeId = currentUser.id;
   const reFetch = async () => {
-    // leaveRecords = await fetchAllLeaveForMonth(employeeId); // Placeholder for fetch logic
     mergeAndRenderHistory();
   };
   
@@ -520,10 +507,7 @@ function listenToShiftSettings() {
   });
 }
 
-// ==========================================
-// 9. FACE & CAMERA FUNCTIONS
-// ==========================================
-
+// 9. Face & Camera Functions (Smooth Loop Implementation)
 async function loadAIModels() {
   try {
     await Promise.all([
@@ -540,10 +524,16 @@ async function prepareFaceMatcher(imageUrl) {
   currentUserFaceMatcher = null;
   if (!imageUrl || imageUrl.includes("placehold.co")) return;
   try {
-    const img = await faceapi.fetchImage(imageUrl, { mode: 'cors' }); // Added mode cors
+    const img = await faceapi.fetchImage(imageUrl, { mode: 'cors' }); 
     const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-    if (detection) currentUserFaceMatcher = new faceapi.FaceMatcher(detection.descriptor);
-  } catch (e) { }
+    if (detection) {
+        currentUserFaceMatcher = new faceapi.FaceMatcher(detection.descriptor);
+    } else {
+        console.warn("No face detected in profile image.");
+    }
+  } catch (e) { 
+      console.error("Error preparing face matcher:", e);
+  }
 }
 
 async function startFaceScan(action) {
@@ -556,7 +546,12 @@ async function startFaceScan(action) {
   try {
     videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } } });
     videoElement.srcObject = videoStream;
-    videoElement.onplay = () => { setTimeout(handleCaptureAndAnalyze, 1000); };
+    
+    // Start scanning loop
+    videoElement.onplay = () => {
+        isScanning = true;
+        scanLoop();
+    };
   } catch (err) {
     showMessage("Error", "កាមេរ៉ាមានបញ្ហា");
     hideCameraModal();
@@ -564,6 +559,7 @@ async function startFaceScan(action) {
 }
 
 function stopCamera() {
+  isScanning = false; // Stop loop
   if (videoStream) videoStream.getTracks().forEach(t => t.stop());
   videoElement.srcObject = null;
 }
@@ -574,35 +570,39 @@ function hideCameraModal() {
   cameraModal.classList.remove("modal-visible");
 }
 
-async function handleCaptureAndAnalyze() {
-  if(cameraLoadingText) cameraLoadingText.textContent = "កំពុងផ្ទៀងផ្ទាត់...";
-  const displaySize = { width: videoElement.videoWidth, height: videoElement.videoHeight };
-  faceapi.matchDimensions(cameraCanvas, displaySize);
-  cameraCanvas.getContext("2d").drawImage(videoElement, 0, 0, displaySize.width, displaySize.height);
-
-  try {
-    const detection = await faceapi.detectSingleFace(cameraCanvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-    if (!detection) {
-        if(cameraLoadingText) cameraLoadingText.textContent = "រកមិនឃើញមុខ... ព្យាយាមម្តងទៀត";
-        setTimeout(handleCaptureAndAnalyze, 500);
-        return;
-    }
+// *** SMOOTH SCANNING LOOP ***
+async function scanLoop() {
+    if (!isScanning) return;
     
+    // Ensure video is playing and ready
+    if (videoElement.paused || videoElement.ended || !faceapi.nets.tinyFaceDetector.params) {
+        return setTimeout(scanLoop, 100);
+    }
+
+    // Resize canvas logic removed to allow smooth video display (Canvas is transparent overlay)
+    // Face detection runs on videoElement directly
+    const detection = await faceapi.detectSingleFace(videoElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+
+    if (!detection) {
+        if(cameraLoadingText) cameraLoadingText.textContent = "កំពុងស្វែងរកមុខ...";
+        return setTimeout(scanLoop, 100); // Retry quickly
+    }
+
     if (!currentUserFaceMatcher) {
-         processScanSuccess(); 
-         return;
+         if(cameraLoadingText) cameraLoadingText.textContent = "គ្មានរូប Profile!";
+         return setTimeout(scanLoop, 500);
     }
 
     const match = currentUserFaceMatcher.findBestMatch(detection.descriptor);
-    if (match.distance < FACE_MATCH_THRESHOLD) {
+    
+    // Validate match
+    if (match.distance <= FACE_MATCH_THRESHOLD) {
+        isScanning = false;
         processScanSuccess();
     } else {
-        if(cameraLoadingText) cameraLoadingText.textContent = "មុខមិនត្រូវគ្នា! ព្យាយាមម្តងទៀត";
-        setTimeout(handleCaptureAndAnalyze, 1000);
+        if(cameraLoadingText) cameraLoadingText.textContent = "មិនត្រូវគ្នា (" + Math.round((1 - match.distance) * 100) + "%)";
+        setTimeout(scanLoop, 500); // Retry after delay
     }
-  } catch (e) {
-    setTimeout(handleCaptureAndAnalyze, 1000);
-  }
 }
 
 function processScanSuccess() {
@@ -614,10 +614,7 @@ function processScanSuccess() {
     }, 800);
 }
 
-// ==========================================
-// 10. MAIN ACTION & UI FUNCTIONS
-// ==========================================
-
+// 10. Main Action & UI Functions
 async function handleCheckIn() {
   if(actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
   
@@ -686,13 +683,13 @@ function showActionButton(title, subtitle, icon, gradientClass, action) {
     actionBtnIcon.className = `ph-fill ${icon} text-2xl`;
     actionBtnBg.className = `absolute inset-0 bg-gradient-to-br ${gradientClass} transition-all duration-500`;
     
-    // Remove old listeners
-    const newBtn = mainActionButton.cloneNode(true);
-    mainActionButton.parentNode.replaceChild(newBtn, mainActionButton);
-    
-    // Add new listener
-    document.getElementById('mainActionButton').addEventListener('click', () => startFaceScan(action));
-    document.getElementById('mainActionButton').classList.add('btn-pulse');
+    const currentBtn = document.getElementById('mainActionButton');
+    if (currentBtn) {
+        currentBtn.onclick = () => startFaceScan(action);
+        if (!currentBtn.classList.contains('btn-pulse')) {
+            currentBtn.classList.add('btn-pulse');
+        }
+    }
 }
 
 function showStatusMessage(title, desc, icon, iconBgClass) {
@@ -710,7 +707,6 @@ async function updateButtonState() {
   const shift = currentUserShift;
   const hasShift = shift && shift !== "N/A" && shift !== "None";
 
-  // Reset Display
   if(actionButtonContainer) actionButtonContainer.classList.add('hidden');
   if(statusMessageContainer) statusMessageContainer.classList.add('hidden');
   if(noShiftContainer) noShiftContainer.classList.add('hidden');
@@ -751,10 +747,7 @@ function formatTime(date) {
   return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
 }
 
-// ==========================================
-// 11. USER SELECTION & INIT
-// ==========================================
-
+// 11. User Selection & Init
 async function selectUser(employee) {
   changeView("homeView");
   
@@ -766,7 +759,6 @@ async function selectUser(employee) {
   profileName.textContent = employee.name;
   profileId.textContent = `ID: ${employee.id}`;
   
-  // Update Labels (Department & Group)
   if(profileDepartment) profileDepartment.textContent = employee.department || "N/A"; 
   if(profileGroup) profileGroup.textContent = employee.group || "N/A";
   
@@ -788,9 +780,9 @@ async function selectUser(employee) {
       employeeName: employee.name,
   }).catch(console.error);
 
-  setupAttendanceListener(); // Now defined
-  startLeaveListeners();     // Now defined
-  startSessionListener(employee.id); // Now defined
+  setupAttendanceListener();
+  startLeaveListeners();
+  startSessionListener(employee.id);
   prepareFaceMatcher(employee.photoUrl);
   
   if(employeeListContainer) employeeListContainer.classList.add("hidden");
@@ -937,5 +929,6 @@ if(exitAppButton) exitAppButton.addEventListener("click", () => showConfirmation
 if(cameraCloseButton) cameraCloseButton.addEventListener("click", hideCameraModal);
 if(navHomeButton) navHomeButton.addEventListener("click", () => { changeView("homeView"); navHomeButton.classList.add("active-nav"); navHistoryButton.classList.remove("active-nav"); });
 if(navHistoryButton) navHistoryButton.addEventListener("click", () => { changeView("historyView"); navHistoryButton.classList.add("active-nav"); navHomeButton.classList.remove("active-nav"); });
+if(modalCancelButton) modalCancelButton.addEventListener("click", hideMessage);
 
 document.addEventListener("DOMContentLoaded", initializeAppFirebase);
