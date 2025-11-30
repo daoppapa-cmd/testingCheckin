@@ -191,6 +191,8 @@ function showConfirmation(title, message, confirmText, onConfirm) {
   modalConfirmButton.textContent = confirmText;
   modalCancelButton.style.display = "block"; 
   modalConfirmButton.onclick = onConfirm;
+  modalCancelButton.onclick = hideMessage; 
+  
   customModal.classList.remove("modal-hidden");
   customModal.classList.add("modal-visible");
 }
@@ -640,7 +642,8 @@ async function handleCheckIn() {
         checkIn: formatTime(now),
         checkInLocation: { lat: coords.latitude, lon: coords.longitude }
      });
-     showMessage("ជោគជ័យ", "បាន Check-in ដោយជោគជ័យ");
+     
+     // *** Removed success message as requested ***
      
   } catch (e) {
      showMessage("Error", e.message, true);
@@ -667,7 +670,8 @@ async function handleCheckOut() {
         checkOut: formatTime(now),
         checkOutLocation: { lat: coords.latitude, lon: coords.longitude }
      });
-     showMessage("ជោគជ័យ", "បាន Check-out ដោយជោគជ័យ");
+     
+     // *** Removed success message as requested ***
      
   } catch (e) {
      showMessage("Error", e.message, true);
