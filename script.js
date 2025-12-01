@@ -193,45 +193,73 @@ function changeView(viewId) {
   }
 }
 
+// 1. មុខងារបង្ហាញសារធម្មតា (Alert)
 function showMessage(title, message, isError = false) {
-  modalTitle.textContent = title;
-  modalMessage.textContent = message;
-  if (isError) {
-      if(modalIcon) {
-        modalIcon.innerHTML = '<i class="ph-duotone ph-warning-circle text-3xl text-red-500"></i>';
-        modalIcon.className = "w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4";
-      }
-  } else {
-      if(modalIcon) {
-        modalIcon.innerHTML = '<i class="ph-duotone ph-info text-3xl text-blue-600"></i>';
-        modalIcon.className = "w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-4";
-      }
-  }
-  modalConfirmButton.onclick = () => hideMessage();
-  modalCancelButton.style.display = "none";
-  customModal.classList.remove("modal-hidden");
-  customModal.classList.add("modal-visible");
+  // កំណត់ពណ៌ Icon
+  const iconColor = isError ? "text-red-500" : "text-blue-500";
+  const bgColor = isError ? "bg-red-50" : "bg-blue-50";
+  const iconName = isError ? "ph-warning-circle" : "ph-info";
+
+  // បង្កើត HTML ថ្មីដែលស្អាតជាងមុន
+  const modalContent = `
+    <div class="modal-box-design">
+      <div class="status-icon-wrapper ${bgColor} ${iconColor}">
+        <i class="ph-fill ${iconName}"></i>
+      </div>
+      <h3 class="modal-title-text">${title}</h3>
+      <p class="modal-body-text">${message}</p>
+      <button id="modalConfirmButton" class="modal-btn modal-btn-primary">
+        យល់ព្រម
+      </button>
+    </div>
+  `;
+
+  // ចាក់បញ្ចូលក្នុង HTML
+  const modalContainer = document.getElementById("customModal");
+  modalContainer.innerHTML = modalContent;
+  
+  // កំណត់ Event ឱ្យប៊ូតុង
+  document.getElementById("modalConfirmButton").onclick = hideMessage;
+
+  // បង្ហាញ Modal
+  modalContainer.classList.remove("modal-hidden");
+  modalContainer.classList.add("modal-visible");
 }
 
+// 2. មុខងារសួរបញ្ជាក់ (Confirmation - ពេល Logout)
 function showConfirmation(title, message, confirmText, onConfirm) {
-  modalTitle.textContent = title;
-  modalMessage.textContent = message;
-  if(modalIcon) {
-    modalIcon.innerHTML = '<i class="ph-duotone ph-question text-3xl text-orange-500"></i>';
-    modalIcon.className = "w-16 h-16 bg-orange-50 rounded-full flex items-center justify-center mx-auto mb-4";
-  }
-  modalConfirmButton.textContent = confirmText;
-  modalCancelButton.style.display = "block"; 
-  modalConfirmButton.onclick = onConfirm;
-  modalCancelButton.onclick = hideMessage; 
-  
-  customModal.classList.remove("modal-hidden");
-  customModal.classList.add("modal-visible");
+  const modalContent = `
+    <div class="modal-box-design">
+      <div class="status-icon-wrapper bg-orange-50 text-orange-500">
+        <i class="ph-fill ph-question"></i>
+      </div>
+      <h3 class="modal-title-text">${title}</h3>
+      <p class="modal-body-text">${message}</p>
+      <div class="grid grid-cols-2 gap-3">
+        <button id="modalCancelBtn" class="modal-btn modal-btn-secondary">
+          បោះបង់
+        </button>
+        <button id="modalOkBtn" class="modal-btn modal-btn-primary bg-gradient-to-r from-red-500 to-pink-600 shadow-red-200">
+          ${confirmText}
+        </button>
+      </div>
+    </div>
+  `;
+
+  const modalContainer = document.getElementById("customModal");
+  modalContainer.innerHTML = modalContent;
+
+  document.getElementById("modalCancelBtn").onclick = hideMessage;
+  document.getElementById("modalOkBtn").onclick = onConfirm;
+
+  modalContainer.classList.remove("modal-hidden");
+  modalContainer.classList.add("modal-visible");
 }
 
 function hideMessage() {
-  customModal.classList.add("modal-hidden");
-  customModal.classList.remove("modal-visible");
+  const modal = document.getElementById("customModal");
+  modal.classList.add("modal-hidden");
+  modal.classList.remove("modal-visible");
 }
 
 function getTodayDateString(date = new Date()) {
