@@ -89,7 +89,7 @@ const durationMap = {
 
 // 3. Firebase Configurations
 const firebaseConfigAttendance = {
-  apiKey: "AIzaSyCgc3fq9mDHMCjTRRHD3BPBL31JkKZgXFc",
+  apiKey: "AIzaSyB0pgr2Nd8Ynge7s6rCQ9zJPO2Xe3JZ0e8",
   authDomain: "checkme-10e18.firebaseapp.com",
   databaseURL: "https://checkme-10e18-default-rtdb.firebaseio.com",
   projectId: "checkme-10e18",
@@ -99,7 +99,7 @@ const firebaseConfigAttendance = {
   measurementId: "G-QCJ2JH4WH6",
 };
 const firebaseConfigLeave = {
-  apiKey: "AIzaSyDjr_Ha2RxOWEumjEeSdluIW3JmyM76mVk",
+  apiKey: "AIzaSyDKLkR_5ba4Ru_3ArzwkwJaHTM44Clu14c",
   authDomain: "dipermisstion.firebaseapp.com",
   projectId: "dipermisstion",
   storageBucket: "dipermisstion.firebasestorage.app",
@@ -108,7 +108,7 @@ const firebaseConfigLeave = {
   measurementId: "G-KDPHXZ7H4B",
 };
 const firebaseConfigEmployeeList = {
-  apiKey: "AIzaSyAc2g-t9A7du3K_nI2fJnw_OGxhmLfpP6s",
+  apiKey: "AIzaSyDcLWRG0hYXr1aXNUC7EfpqcqUIfNE2w48",
   authDomain: "dilistname.firebaseapp.com",
   databaseURL: "https://dilistname-default-rtdb.firebaseio.com",
   projectId: "dilistname",
