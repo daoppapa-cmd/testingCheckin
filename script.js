@@ -467,20 +467,34 @@ function setupAttendanceListener() {
   if (!attendanceCollectionRef) return;
   if (attendanceListener) attendanceListener();
 
-  console.log("កំពុងរង់ចាំទិន្នន័យវត្តមាន..."); // <--- ដាក់មួយនៅទីនេះ
+  console.log("កំពុងរង់ចាំទិន្នន័យវត្តមាន...");
 
   attendanceListener = onSnapshot(attendanceCollectionRef, (querySnapshot) => {
-    console.log("ទទួលបានទិន្នន័យពី Database!", querySnapshot.size); // <--- និងមួយទៀតនៅទីនេះ
+    console.log("ទទួលបានទិន្នន័យពី Database!", querySnapshot.size);
     
     let allRecords = [];
-    querySnapshot.forEach((doc) => allRecords.push(doc.data()));
-    // ... (កូដនៅដដែល) ...
+    querySnapshot.forEach((doc) => {
+        allRecords.push(doc.data());
+    });
+
+    // === ចំណុចបន្ថែម ដើម្បី Debug ===
+    console.log("ទិន្នន័យទាំងអស់ (Raw Data):", allRecords);
+    
+    const { startOfMonth, endOfMonth } = getCurrentMonthRange();
+    console.log(`កំពុងច្រោះយកចន្លោះពី: ${startOfMonth} ដល់ ${endOfMonth}`);
+
+    attendanceRecords = allRecords.filter(
+      (record) => record.date >= startOfMonth && record.date <= endOfMonth
+    );
+    
+    console.log("ទិន្នន័យដែលសល់ក្រោយច្រោះ (Filtered):", attendanceRecords.length);
+    // ==============================
+
     mergeAndRenderHistory();
   }, (error) => {
-      console.error("Error fetching attendance:", error); // <--- ចាប់កំហុសនៅទីនេះ
+      console.error("Error fetching attendance:", error);
   });
 }
-
 function startLeaveListeners() {
   // ថែមការត្រួតពិនិត្យឱ្យច្បាស់
   if (!dbLeave || !currentUser) {
