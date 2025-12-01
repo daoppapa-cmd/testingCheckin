@@ -544,32 +544,34 @@ function setupAttendanceListener() {
   if (!attendanceCollectionRef) return;
   if (attendanceListener) attendanceListener();
 
-  console.log("កំពុងរង់ចាំទិន្នន័យវត្តមាន...");
-
   attendanceListener = onSnapshot(attendanceCollectionRef, (querySnapshot) => {
-    console.log("ទទួលបានទិន្នន័យពី Database!", querySnapshot.size);
-    
     let allRecords = [];
-    querySnapshot.forEach((doc) => {
-        allRecords.push(doc.data());
-    });
-
-    // === ចំណុចបន្ថែម ដើម្បី Debug ===
-    console.log("ទិន្នន័យទាំងអស់ (Raw Data):", allRecords);
+    querySnapshot.forEach((doc) => allRecords.push(doc.data()));
     
-    const { startOfMonth, endOfMonth } = getCurrentMonthRange();
-    console.log(`កំពុងច្រោះយកចន្លោះពី: ${startOfMonth} ដល់ ${endOfMonth}`);
+    // យកទិន្នន័យទាំងអស់ (មិនបាច់ច្រោះខែ ដើម្បីឱ្យឃើញទិន្នន័យភ្លាម)
+    attendanceRecords = allRecords; 
 
-    attendanceRecords = allRecords.filter(
-      (record) => record.date >= startOfMonth && record.date <= endOfMonth
-    );
+    // រៀបចំទិន្នន័យ
+    currentMonthRecords = mergeAttendanceAndLeave(attendanceRecords, leaveRecords);
     
-    console.log("ទិន្នន័យដែលសល់ក្រោយច្រោះ (Filtered):", attendanceRecords.length);
-    // ==============================
+    // Render ទាំងពីរផ្នែក
+    renderTodayHistory(); // ផ្នែកខាងក្រោម
+    updateButtonState();  // ផ្នែកប៊ូតុងស្កេន
+    renderMonthlyHistory();
 
-    mergeAndRenderHistory();
-  }, (error) => {
-      console.error("Error fetching attendance:", error);
+    // === បង្ហាញ UI មកព្រមគ្នា (Fade In) ===
+    const actionArea = document.getElementById("dynamicActionArea");
+    const activityArea = document.getElementById("todayActivitySection");
+    
+    if (actionArea && activityArea) {
+      actionArea.style.transition = "opacity 0.5s ease";
+      activityArea.style.transition = "opacity 0.5s ease 0.1s"; // យឺតជាងបន្តិច
+      
+      requestAnimationFrame(() => {
+        actionArea.style.opacity = "1";
+        activityArea.style.opacity = "1";
+      });
+    }
   });
 }
 function startLeaveListeners() {
@@ -943,44 +945,54 @@ function formatTime(date) {
 
 // 11. User Selection & Init
 async function selectUser(employee) {
-  changeView("homeView");
+  // 1. បង្ហាញ Loading State ភ្លាមៗ (ដាក់ទិន្នន័យបណ្តោះអាសន្នសិន)
+  changeView("homeView"); // ប្តូរទៅ Home ភ្លាម
   
+  // បង្ហាញ Skeleton (ពណ៌ប្រផេះព្រាលៗ) លើផ្នែកដែលត្រូវរង់ចាំ
+  profileName.innerHTML = `<span class="animate-pulse bg-gray-200 rounded h-6 w-32 inline-block"></span>`;
+  profileId.textContent = "...";
+  // ដាក់រូប Loading សិន
+  profileImage.src = "https://placehold.co/80x80/e2e8f0/e2e8f0?text=..."; 
+  
+  // លាក់ប៊ូតុងស្កេន និងប្រវត្តិសិន (កុំឱ្យលោតមកមុន)
+  document.getElementById("dynamicActionArea").style.opacity = "0";
+  document.getElementById("todayActivitySection").style.opacity = "0";
+
+  // 2. កំណត់ទិន្នន័យក្នុង Memory
   currentUser = employee;
   localStorage.setItem("savedEmployeeId", employee.id);
   
-  welcomeMessage.textContent = `សូមស្វាគមន៍`;
-  profileImage.src = employee.photoUrl || "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
-  profileName.textContent = employee.name;
-  profileId.textContent = `ID: ${employee.id}`;
-  
-  if(profileDepartment) profileDepartment.textContent = employee.department || "N/A"; 
-  if(profileGroup) profileGroup.textContent = employee.group || "N/A";
-  
+  // 3. ចាប់ផ្តើមទាញទិន្នន័យ (មិនទាន់បង្ហាញ)
   const dayOfWeek = new Date().getDay();
   const dayToShiftKey = ["shiftSun", "shiftMon", "shiftTue", "shiftWed", "shiftThu", "shiftFri", "shiftSat"];
   currentUserShift = currentUser[dayToShiftKey[dayOfWeek]] || "N/A";
-  if(profileShift) profileShift.textContent = currentUserShift;
-  
+
   const firestoreUserId = currentUser.id;
-  const simpleDataPath = `attendance/${firestoreUserId}/records`;
-  attendanceCollectionRef = collection(dbAttendance, simpleDataPath);
-  
+  attendanceCollectionRef = collection(dbAttendance, `attendance/${firestoreUserId}/records`);
+
   currentDeviceId = self.crypto.randomUUID();
   localStorage.setItem("currentDeviceId", currentDeviceId);
-  
-  setDoc(doc(sessionCollectionRef, employee.id), {
-      deviceId: currentDeviceId,
-      timestamp: new Date().toISOString(),
-      employeeName: employee.name,
-  }).catch(console.error);
 
-  setupAttendanceListener();
-  startLeaveListeners();
-  startSessionListener(employee.id);
-  prepareFaceMatcher(employee.photoUrl);
-  
-  if(employeeListContainer) employeeListContainer.classList.add("hidden");
-  if(searchInput) searchInput.value = "";
+  // 4. កំណត់ពេលបន្តិច (Simulate Smoothness) ហើយបង្ហាញទិន្នន័យពិត
+  setTimeout(() => {
+    // Update Profile UI
+    profileName.textContent = employee.name;
+    profileId.textContent = `ID: ${employee.id}`;
+    profileImage.src = employee.photoUrl || "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
+    if (profileDepartment) profileDepartment.textContent = employee.department || "N/A";
+    if (profileGroup) profileGroup.textContent = employee.group || "N/A";
+    if (profileShift) profileShift.textContent = currentUserShift;
+
+    // ចាប់ផ្តើមស្តាប់ Firebase
+    setupAttendanceListener(); 
+    startLeaveListeners();
+    startSessionListener(employee.id);
+    prepareFaceMatcher(employee.photoUrl);
+
+    if (employeeListContainer) employeeListContainer.classList.add("hidden");
+    if (searchInput) searchInput.value = "";
+    
+  }, 300); // Delay 300ms ដើម្បីឱ្យឃើញ Transition រលូន
 }
 
 function logout() {
