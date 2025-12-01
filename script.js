@@ -42,7 +42,7 @@ let attendanceListener = null;
 let leaveCollectionListener = null;
 let outCollectionListener = null;
 let currentConfirmCallback = null;
-let shiftSettings = {};
+
 let sessionCollectionRef = null;
 let sessionListener = null;
 let currentDeviceId = null;
