@@ -849,6 +849,7 @@ async function updateButtonState() {
   const shift = currentUserShift;
   const hasShift = shift && shift !== "N/A" && shift !== "None";
 
+  // Reset UI elements
   if (actionButtonContainer) actionButtonContainer.classList.add("hidden");
   if (statusMessageContainer) statusMessageContainer.classList.add("hidden");
   if (noShiftContainer) noShiftContainer.classList.add("hidden");
@@ -862,39 +863,48 @@ async function updateButtonState() {
   const canCheckIn = checkShiftTime(shift, "checkIn");
   const canCheckOut = checkShiftTime(shift, "checkOut");
 
+  // ============================================================
+  // 1. ពិនិត្យជាមុន៖ តើបាន Check Out រួចហើយឬនៅ?
+  // (មិនថាគាត់បាន Check In ឬអត់ទេ ឱ្យតែមានម៉ោងចេញ គឺចប់ភារកិច្ច)
+  // ============================================================
+  if (todayData && todayData.checkOut) {
+    showStatusMessage(
+      "កត់ត្រារួចរាល់",
+      "អ្នកបាន Check Out រួចរាល់ហើយ",
+      "ph-check-circle",
+      "bg-green-100 text-green-600"
+    );
+    return; // បញ្ឈប់ការងារត្រឹមនេះ លែងបង្ហាញប៊ូតុងទៀតហើយ
+  }
+
+  // ============================================================
+  // 2. ករណីមិនទាន់ Check Out (កំពុងធ្វើការ ឬមិនទាន់ចូល)
+  // ============================================================
+  
   if (todayData && todayData.checkIn) {
-    // ករណីទី ១: គាត់បាន Check In រួចហើយ
-    if (todayData.checkOut) {
-      showStatusMessage(
-        "វត្តមានពេញលេញ",
-        "អ្នកបានបំពេញការងារសម្រាប់ថ្ងៃនេះហើយ",
-        "ph-check-circle",
-        "bg-green-100 text-green-600"
+    // --- ករណី A: បាន Check In រួចហើយ (កំពុងធ្វើការ) ---
+    if (canCheckOut) {
+      showActionButton(
+        "Check Out",
+        "ចុចដើម្បីចាកចេញ",
+        "ph-sign-out",
+        "from-red-500 to-orange-600",
+        "checkOut"
       );
     } else {
-      if (canCheckOut) {
-        showActionButton(
-          "Check Out",
-          "ចុចដើម្បីចាកចេញ",
-          "ph-sign-out",
-          "from-red-500 to-orange-600",
-          "checkOut"
-        );
-      } else {
-        showStatusMessage(
-          "កំពុងបំពេញការងារ",
-          "រង់ចាំដល់ម៉ោងចេញពីការងារ",
-          "ph-hourglass",
-          "bg-blue-100 text-blue-600"
-        );
-        const iconEl = document.getElementById("statusIcon");
-        if(iconEl) iconEl.classList.add("animate-breathe");
-      }
+      showStatusMessage(
+        "កំពុងបំពេញការងារ",
+        "រង់ចាំដល់ម៉ោងចេញពីការងារ",
+        "ph-hourglass",
+        "bg-blue-100 text-blue-600"
+      );
+      const iconEl = document.getElementById("statusIcon");
+      if(iconEl) iconEl.classList.add("animate-breathe");
     }
   } else {
-    // ករណីទី ២: គាត់មិនទាន់បាន Check In (ឬភ្លេច)
+    // --- ករណី B: មិនទាន់ Check In (ឬភ្លេច Check In) ---
     if (canCheckIn) {
-      // ស្ថិតក្នុងម៉ោងចូល -> បង្ហាញប៊ូតុង Check In
+      // ដល់ម៉ោងចូល -> បង្ហាញ Check In
       showActionButton(
         "Check In",
         "ចុចដើម្បីចូលធ្វើការ",
@@ -903,8 +913,7 @@ async function updateButtonState() {
         "checkIn"
       );
     } else if (canCheckOut) {
-      // *** ចំណុចសំខាន់ដែលបានកែ៖ ស្ថិតក្នុងម៉ោងចេញ តែអត់មាន Check In ***
-      // អនុញ្ញាតឱ្យ Check Out បាន (ករណីភ្លេច Check In)
+      // ដល់ម៉ោងចេញ (តែអត់មាន Check In) -> បង្ហាញ Check Out ឱ្យគាត់បំពេញ
       showActionButton(
         "Check Out",
         "អ្នកមិនបាន Check In (ចុចដើម្បីចេញ)",
