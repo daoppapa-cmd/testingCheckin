@@ -476,19 +476,36 @@ function setupAttendanceListener() {
 }
 
 function startLeaveListeners() {
-  if (!dbLeave || !currentUser) return;
-  if (leaveCollectionListener) leaveCollectionListener();
-  if (outCollectionListener) outCollectionListener();
+  // ថែមការត្រួតពិនិត្យឱ្យច្បាស់
+  if (!dbLeave || !currentUser) {
+    console.log("Leave Database not ready or User not selected.");
+    return;
+  }
 
   const employeeId = currentUser.id;
   const reFetch = async () => {
     mergeAndRenderHistory();
   };
-  
-  const qLeave = query(collection(dbLeave, "/artifacts/default-app-id/public/data/leave_requests"), where("userId", "==", employeeId));
-  leaveCollectionListener = onSnapshot(qLeave, reFetch);
-  const qOut = query(collection(dbLeave, "/artifacts/default-app-id/public/data/out_requests"), where("userId", "==", employeeId));
-  outCollectionListener = onSnapshot(qOut, reFetch);
+
+  try {
+    // ❌ កូដចាស់ (មាន / នៅពីមុខ): "/artifacts/..."
+    // ✅ កូដថ្មី (លុប / ចេញ): "artifacts/..."
+
+    const qLeave = query(
+      collection(dbLeave, "artifacts/default-app-id/public/data/leave_requests"), 
+      where("userId", "==", employeeId)
+    );
+    leaveCollectionListener = onSnapshot(qLeave, reFetch);
+
+    const qOut = query(
+      collection(dbLeave, "artifacts/default-app-id/public/data/out_requests"),
+      where("userId", "==", employeeId)
+    );
+    outCollectionListener = onSnapshot(qOut, reFetch);
+    
+  } catch (error) {
+    console.error("Error connecting to Leave DB:", error);
+  }
 }
 
 function startSessionListener(employeeId) {
@@ -904,9 +921,15 @@ async function initializeAppFirebase() {
   try {
     const attendanceApp = initializeApp(firebaseConfigAttendance);
     dbAttendance = getFirestore(attendanceApp);
-    
-    // ✅ ត្រូវប្រាកដថាមានបន្ទាត់នេះ៖
-    authAttendance = getAuth(attendanceApp); 
+    authAttendance = getAuth(attendanceApp);
+    dbShift = getDatabase(attendanceApp);
+    sessionCollectionRef = collection(dbAttendance, "active_sessions");
+
+    // ✅ ផ្នែកនេះត្រូវតែនៅមាន ដើម្បីប្រើសម្រាប់មើលច្បាប់ឈប់សម្រាក
+    const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
+    dbLeave = getFirestore(leaveApp); 
+
+    // ...
 
     // ... (កូដផ្សេងទៀត) ...
 
