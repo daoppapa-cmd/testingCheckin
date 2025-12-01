@@ -739,30 +739,43 @@ async function handleCheckIn() {
 }
 
 async function handleCheckOut() {
-  if(actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
-  
+  if (actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
+
   try {
-     const coords = await getUserLocation();
-     if (!isInsideArea(coords.latitude, coords.longitude)) {
-         showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
-         updateButtonState();
-         return;
-     }
-     
-     const now = new Date();
-     const todayDocId = getTodayDateString(now);
-     
-     await updateDoc(doc(attendanceCollectionRef, todayDocId), {
-        checkOutTimestamp: now.toISOString(),
-        checkOut: formatTime(now),
-        checkOutLocation: { lat: coords.latitude, lon: coords.longitude }
-     });
-     
-     // *** Removed success message as requested ***
-     
+    const coords = await getUserLocation();
+    if (!isInsideArea(coords.latitude, coords.longitude)) {
+      showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
+      updateButtonState();
+      return;
+    }
+
+    const now = new Date();
+    const todayDocId = getTodayDateString(now);
+    
+    // យើងប្រើ setDoc ជាមួយ { merge: true } ជំនួសឱ្យ updateDoc
+    // ដើម្បីការពារករណីដែលគាត់មិនបាន Check In (ឯកសារមិនទាន់មាន)
+    await setDoc(doc(attendanceCollectionRef, todayDocId), {
+      // បើមិនទាន់មានទិន្នន័យគោល (ករណីភ្លេច Check In) យើងត្រូវបញ្ចូលព័ត៌មានមូលដ្ឋាន
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      department: currentUser.department,
+      shift: currentUserShift,
+      date: todayDocId,
+      formattedDate: formatDate(now),
+      
+      // ទិន្នន័យ Check Out
+      checkOutTimestamp: now.toISOString(),
+      checkOut: formatTime(now),
+      checkOutLocation: { lat: coords.latitude, lon: coords.longitude },
+      
+      // ដាក់ចំណាំថា Check In "N/A" បើវាមិនទាន់មាន
+      // (Firestore នឹងមិនលុប Check In ចាស់ចោលទេ ដោយសារ merge: true)
+    }, { merge: true });
+
+    // updateButtonState នឹងត្រូវហៅដោយស្វ័យប្រវត្តិតាមរយៈ onSnapshot listener
   } catch (e) {
-     showMessage("Error", e.message, true);
-     updateButtonState();
+    showMessage("Error", e.message, true);
+    updateButtonState();
   }
 }
 
@@ -794,39 +807,82 @@ function showStatusMessage(title, desc, icon, iconBgClass) {
 
 async function updateButtonState() {
   const todayString = getTodayDateString();
-  const todayData = currentMonthRecords.find(r => r.date === todayString);
+  const todayData = currentMonthRecords.find((r) => r.date === todayString);
   const shift = currentUserShift;
   const hasShift = shift && shift !== "N/A" && shift !== "None";
 
-  if(actionButtonContainer) actionButtonContainer.classList.add('hidden');
-  if(statusMessageContainer) statusMessageContainer.classList.add('hidden');
-  if(noShiftContainer) noShiftContainer.classList.add('hidden');
-  if(shiftStatusIndicator) shiftStatusIndicator.classList.add('hidden');
+  if (actionButtonContainer) actionButtonContainer.classList.add("hidden");
+  if (statusMessageContainer) statusMessageContainer.classList.add("hidden");
+  if (noShiftContainer) noShiftContainer.classList.add("hidden");
+  if (shiftStatusIndicator) shiftStatusIndicator.classList.add("hidden");
 
   if (!hasShift) {
-      if(noShiftContainer) noShiftContainer.classList.remove('hidden');
-      return;
+    if (noShiftContainer) noShiftContainer.classList.remove("hidden");
+    return;
   }
 
   const canCheckIn = checkShiftTime(shift, "checkIn");
   const canCheckOut = checkShiftTime(shift, "checkOut");
 
   if (todayData && todayData.checkIn) {
-      if (todayData.checkOut) {
-          showStatusMessage("វត្តមានពេញលេញ", "អ្នកបានបំពេញការងារសម្រាប់ថ្ងៃនេះហើយ", "ph-check-circle", "bg-green-100 text-green-600");
+    // ករណីទី ១: គាត់បាន Check In រួចហើយ
+    if (todayData.checkOut) {
+      showStatusMessage(
+        "វត្តមានពេញលេញ",
+        "អ្នកបានបំពេញការងារសម្រាប់ថ្ងៃនេះហើយ",
+        "ph-check-circle",
+        "bg-green-100 text-green-600"
+      );
+    } else {
+      if (canCheckOut) {
+        showActionButton(
+          "Check Out",
+          "ចុចដើម្បីចាកចេញ",
+          "ph-sign-out",
+          "from-red-500 to-orange-600",
+          "checkOut"
+        );
       } else {
-          if (canCheckOut) {
-              showActionButton("Check Out", "ចុចដើម្បីចាកចេញ", "ph-sign-out", "from-red-500 to-orange-600", "checkOut");
-          } else {
-              showStatusMessage("កំពុងបំពេញការងារ", "រង់ចាំដល់ម៉ោងចេញពីការងារ", "ph-hourglass", "bg-blue-100 text-blue-600");
-          }
+        showStatusMessage(
+          "កំពុងបំពេញការងារ",
+          "រង់ចាំដល់ម៉ោងចេញពីការងារ",
+          "ph-hourglass",
+          "bg-blue-100 text-blue-600"
+        );
+        const iconEl = document.getElementById("statusIcon");
+        if(iconEl) iconEl.classList.add("animate-breathe");
       }
+    }
   } else {
-      if (canCheckIn) {
-          showActionButton("Check In", "ចុចដើម្បីចូលធ្វើការ", "ph-sign-in", "from-blue-600 to-cyan-500", "checkIn");
-      } else {
-          showStatusMessage("ក្រៅម៉ោង Check-in", "សូមរង់ចាំដល់ម៉ោងចូលធ្វើការ", "ph-clock-slash", "bg-slate-100 text-slate-400");
-      }
+    // ករណីទី ២: គាត់មិនទាន់បាន Check In (ឬភ្លេច)
+    if (canCheckIn) {
+      // ស្ថិតក្នុងម៉ោងចូល -> បង្ហាញប៊ូតុង Check In
+      showActionButton(
+        "Check In",
+        "ចុចដើម្បីចូលធ្វើការ",
+        "ph-sign-in",
+        "from-blue-600 to-cyan-500",
+        "checkIn"
+      );
+    } else if (canCheckOut) {
+      // *** ចំណុចសំខាន់ដែលបានកែ៖ ស្ថិតក្នុងម៉ោងចេញ តែអត់មាន Check In ***
+      // អនុញ្ញាតឱ្យ Check Out បាន (ករណីភ្លេច Check In)
+      showActionButton(
+        "Check Out",
+        "អ្នកមិនបាន Check In (ចុចដើម្បីចេញ)",
+        "ph-sign-out",
+        "from-red-500 to-orange-600",
+        "checkOut"
+      );
+    } else {
+      // ក្រៅម៉ោងទាំងពីរ
+      showStatusMessage(
+        "ក្រៅម៉ោង Check-in",
+        "សូមរង់ចាំដល់ម៉ោងកំណត់",
+        "ph-clock-slash",
+        "bg-slate-100 text-slate-400"
+      );
+    }
   }
 }
 
