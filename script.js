@@ -462,17 +462,23 @@ function renderEmployeeList(employees) {
 }
 
 // 8. Listener Setup Functions
+// ស្វែងរក function setupAttendanceListener ក្នុង script.js
 function setupAttendanceListener() {
   if (!attendanceCollectionRef) return;
   if (attendanceListener) attendanceListener();
 
+  console.log("កំពុងរង់ចាំទិន្នន័យវត្តមាន..."); // <--- ដាក់មួយនៅទីនេះ
+
   attendanceListener = onSnapshot(attendanceCollectionRef, (querySnapshot) => {
-      let allRecords = [];
-      querySnapshot.forEach((doc) => allRecords.push(doc.data()));
-      const { startOfMonth, endOfMonth } = getCurrentMonthRange();
-      attendanceRecords = allRecords.filter((record) => record.date >= startOfMonth && record.date <= endOfMonth);
-      mergeAndRenderHistory();
-    });
+    console.log("ទទួលបានទិន្នន័យពី Database!", querySnapshot.size); // <--- និងមួយទៀតនៅទីនេះ
+    
+    let allRecords = [];
+    querySnapshot.forEach((doc) => allRecords.push(doc.data()));
+    // ... (កូដនៅដដែល) ...
+    mergeAndRenderHistory();
+  }, (error) => {
+      console.error("Error fetching attendance:", error); // <--- ចាប់កំហុសនៅទីនេះ
+  });
 }
 
 function startLeaveListeners() {
