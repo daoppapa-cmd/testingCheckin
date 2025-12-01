@@ -1,4 +1,4 @@
-const studentData = {
+export const studentData = { = {
   "111": {
     "កាលវិភាគ": {
       "ចន្ទ": "ពេញម៉ោង",
