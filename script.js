@@ -52,6 +52,34 @@ let currentScanAction = null;
 let videoStream = null;
 let isScanning = false; // Flag សម្រាប់គ្រប់គ្រងការ Loop ស្កេន
 const FACE_MATCH_THRESHOLD = 0.45;
+// ជំនួស let shiftSettings = {}; ដោយកូដខាងក្រោម៖
+
+const shiftSettings = {
+  "ពេញម៉ោង": {
+    startCheckIn: "07:00 AM",
+    endCheckIn: "10:15 AM",
+    startCheckOut: "05:30 PM",
+    endCheckOut: "11:50 PM"
+  },
+  "ពេលយប់": {
+    startCheckIn: "05:00 PM",
+    endCheckIn: "07:50 PM",
+    startCheckOut: "08:55 PM",
+    endCheckOut: "11:50 PM"
+  },
+  "មួយព្រឹក": {
+    startCheckIn: "07:00 AM",
+    endCheckIn: "10:15 AM",
+    startCheckOut: "11:30 AM",
+    endCheckOut: "11:50 PM"
+  },
+  "មួយរសៀល": {
+    startCheckIn: "12:00 PM",
+    endCheckIn: "02:30 PM",
+    startCheckOut: "05:30 PM",
+    endCheckOut: "11:50 PM"
+  }
+};
 
 const durationMap = {
   មួយថ្ងៃកន្លះ: 1.5, ពីរថ្ងៃ: 2, ពីរថ្ងៃកន្លះ: 2.5, បីថ្ងៃ: 3, បីថ្ងៃកន្លះ: 3.5,
@@ -255,32 +283,47 @@ function getCaseInsensitiveProp(obj, propName) {
 }
 
 function checkShiftTime(shiftType, checkType) {
+  // 1. ករណីគ្មានវេន
   if (!shiftType || shiftType === "N/A" || shiftType === "None") return false;
+
+  // 2. ករណី Uptime (អនុញ្ញាតគ្រប់ពេល)
+  // ចំណាំ៖ function updateButtonState នឹងការពារមិនឱ្យស្កេនស្ទួនដោយខ្លួនឯង
   if (shiftType === "Uptime") return true;
 
+  // 3. ករណីវេនធម្មតា (ពេញម៉ោង, យប់, ព្រឹក, រសៀល)
   const settings = shiftSettings[shiftType];
-  if (!settings) return false;
+  if (!settings) return false; // បើឈ្មោះវេនខុសពីអ្វីដែលកំណត់
 
   let startStr, endStr;
+  
+  // ចាប់យកម៉ោងចូល ឬ ម៉ោងចេញ
   if (checkType === "checkIn") {
-    startStr = getCaseInsensitiveProp(settings, "StartCheckIn");
-    endStr = getCaseInsensitiveProp(settings, "EndCheckIn");
+    startStr = settings.startCheckIn;
+    endStr = settings.endCheckIn;
   } else {
-    startStr = getCaseInsensitiveProp(settings, "StartCheckOut");
-    endStr = getCaseInsensitiveProp(settings, "EndCheckOut");
+    startStr = settings.startCheckOut;
+    endStr = settings.endCheckOut;
   }
 
   if (!startStr || !endStr) return false;
 
+  // បំលែងម៉ោងទៅជាលេខ ដើម្បីផ្ទៀងផ្ទាត់ (ឧ. 7:30 -> 7.5)
   const minTime = parseTimeStringToDecimal(startStr);
   const maxTime = parseTimeStringToDecimal(endStr);
+  
   if (minTime === null || maxTime === null) return false;
 
   const now = new Date();
   const currentTime = now.getHours() + now.getMinutes() / 60;
 
-  if (minTime > maxTime) return currentTime >= minTime || currentTime <= maxTime;
-  return currentTime >= minTime && currentTime <= maxTime;
+  // ផ្ទៀងផ្ទាត់ម៉ោង
+  if (minTime > maxTime) {
+    // ករណីឆ្លងចូលថ្ងៃថ្មី (ឧ. ម៉ោង ១១ យប់ ដល់ ២ ភ្លឺ)
+    return currentTime >= minTime || currentTime <= maxTime;
+  } else {
+    // ករណីក្នុងថ្ងៃតែមួយ (ឧ. ៧ ព្រឹក ដល់ ១០ ព្រឹក)
+    return currentTime >= minTime && currentTime <= maxTime;
+  }
 }
 
 function getUserLocation() {
@@ -1029,23 +1072,15 @@ function setupAuthListener() {
 }
 async function initializeAppFirebase() {
   try {
-    const attendanceApp = initializeApp(firebaseConfigAttendance);
-    dbAttendance = getFirestore(attendanceApp);
-    authAttendance = getAuth(attendanceApp);
-    dbShift = getDatabase(attendanceApp);
-    sessionCollectionRef = collection(dbAttendance, "active_sessions");
+    // ... (កូដផ្សេងទៀតនៅដដែល) ...
 
-    // ✅ ផ្នែកនេះត្រូវតែនៅមាន ដើម្បីប្រើសម្រាប់មើលច្បាប់ឈប់សម្រាក
-    const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
-    dbLeave = getFirestore(leaveApp); 
+    setLogLevel("silent");
 
-    // ...
-
-    // ... (កូដផ្សេងទៀត) ...
-
-    setupAuthListener(); // ហៅនៅទីនេះ
-
-    // ...
+    setupAuthListener();
+    
+    // listenToShiftSettings();  <-- លុប ឬ ដាក់ // នៅពីមុខ ដើម្បីកុំឱ្យវាដំណើរការ
+    
+    loadEmployeesFromLocal();
   } catch (error) {
     showMessage("Error", error.message, true);
   }
