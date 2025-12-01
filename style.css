@@ -5,46 +5,78 @@
 
 body {
   font-family: "Kantumruy Pro", sans-serif;
-  -webkit-tap-highlight-color: transparent;
-  overflow: hidden; /* Prevent pull-to-refresh on mobile */
+  -webkit-tap-highlight-color: transparent; /* លុបពណ៌ Highlight ពេលចុចលើ Mobile */
+  overflow: hidden; /* ឃាត់ការ Scroll លើ Body (Scroll តែក្នុង div) */
   background-color: #f8fafc;
-  user-select: none; /* Prevent text selection for app-like feel */
+  user-select: none; /* មិនឱ្យ Select អក្សរ (ដូច App) */
 }
 
 /* =========================================
-   2. UTILITIES
+   2. UTILITIES (Scroll & Layout)
    ========================================= */
-/* Hide Scrollbar but keep functionality */
+/* លាក់ Scrollbar តែនៅ Scroll បាន */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
 .no-scrollbar {
   -ms-overflow-style: none;
   scrollbar-width: none;
-  -webkit-overflow-scrolling: touch; /* Momentum scrolling for iOS */
+  -webkit-overflow-scrolling: touch; /* ឱ្យ Scroll រលូនលើ iOS */
 }
 
-/* Mirror Video for Selfie Mode */
+/* ត្រឡប់កាមេរ៉ាឱ្យដូចកញ្ចក់ */
 #videoElement,
 #cameraCanvas {
   transform: scaleX(-1);
 }
 
-/* Layout Fixes for Flexbox Scrolling */
+/* ជួសជុលបញ្ហា Scroll ក្នុង Flexbox */
 #homeView > div.overflow-y-auto,
 #historyView > div.overflow-y-auto,
 #employeeListContent {
   flex: 1 1 0%;
-  min-height: 0; /* Crucial for nested flex scrolling */
+  min-height: 0;
   height: 100%;
-  overscroll-behavior-y: contain; /* Prevent scroll chaining */
+  overscroll-behavior-y: contain; /* ការពារកុំឱ្យទាញ Refresh */
 }
 
 /* =========================================
-   3. VIEW TRANSITIONS & LAYOUT
+   3. INTERACTIVE ANIMATIONS (BUTTONS)
    ========================================= */
+/* ប៊ូតុងទាំងអស់ និង Card ដែលចុចបាន */
+button, 
+.nav-button, 
+.cursor-pointer,
+.card-hover-effect {
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, background-color 0.2s;
+  cursor: pointer;
+}
+
+/* ពេលចុច (Active) ឱ្យរួមតូចបន្តិច */
+button:active, 
+.nav-button:active, 
+.cursor-pointer:active,
+.card-hover-effect:active {
+  transform: scale(0.96);
+  opacity: 0.9;
+}
+
+/* =========================================
+   4. VIEW TRANSITIONS (PAGE LOAD)
+   ========================================= */
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(15px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 .view {
-  animation: fadeIn 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  animation: slideInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
   will-change: transform, opacity;
   height: 100%;
   width: 100%;
@@ -55,22 +87,27 @@ body {
 }
 
 /* =========================================
-   4. ANIMATIONS (NEW & IMPROVED)
+   5. COMPONENT ANIMATIONS
    ========================================= */
 
-/* Fade In View */
-@keyframes fadeIn {
+/* --- A. List Items Stagger (សម្រាប់ប្រវត្តិ) --- */
+@keyframes listSlideIn {
   from {
     opacity: 0;
-    transform: translateY(10px) scale(0.99);
+    transform: translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(0);
   }
 }
 
-/* Smooth Slide Up (For Today Activity Cards) */
+.list-item-anim {
+  opacity: 0; /* ចាំបាច់ត្រូវលាក់សិន ទើប JS បើកមកវិញតាមលំដាប់ */
+  animation: listSlideIn 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+}
+
+/* --- B. Today Card (លោតឡើងលើ) --- */
 @keyframes slideUpFade {
   from {
     opacity: 0;
@@ -86,39 +123,22 @@ body {
   animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
-/* Breathing Effect (For Icons/Status) */
+/* --- C. Icons Breathing (សម្រាប់ Status) --- */
 @keyframes breathe {
-  0%, 100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.12);
-    opacity: 0.85;
-  }
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.12); opacity: 0.8; }
 }
 
 .animate-breathe {
   animation: breathe 2.5s infinite ease-in-out;
-  will-change: transform, opacity;
 }
 
-/* Scanner Line Animation */
+/* --- D. Scanner Line --- */
 @keyframes scan {
-  0% {
-    top: 5%;
-    opacity: 0;
-  }
-  15% {
-    opacity: 1;
-  }
-  85% {
-    opacity: 1;
-  }
-  100% {
-    top: 95%;
-    opacity: 0;
-  }
+  0% { top: 5%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: 95%; opacity: 0; }
 }
 
 .animate-scan {
@@ -127,68 +147,59 @@ body {
   box-shadow: 0 0 15px rgba(96, 165, 250, 0.6);
 }
 
-/* Soft Pulse (For Action Buttons) */
+/* --- E. Soft Pulse (សម្រាប់ប៊ូតុង Check In) --- */
 @keyframes pulse-soft {
-  0% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
-  }
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
+  70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
 }
 
 .btn-pulse {
   animation: pulse-soft 2s infinite;
 }
 
-/* Spinner */
-@keyframes spin {
-  100% {
-    transform: rotate(360deg);
-  }
+/* =========================================
+   6. MODAL ANIMATION (SPRING EFFECT)
+   ========================================= */
+.modal {
+  transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
 }
 
-/* Pop In (For Modals) */
-@keyframes popIn {
-  from {
-    transform: scale(0.9) translateY(10px);
-    opacity: 0;
-  }
-  to {
-    transform: scale(1) translateY(0);
-    opacity: 1;
-  }
+.modal-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-visible {
+  opacity: 1;
+  pointer-events: auto;
+  backdrop-filter: blur(8px);
+}
+
+/* Animation លោតដូចរ៉ឺស័រ */
+@keyframes popInSpring {
+  0% { opacity: 0; transform: scale(0.8) translateY(10px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-visible > div {
+  animation: popInSpring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 /* =========================================
-   5. COMPONENTS
+   7. OTHER COMPONENTS
    ========================================= */
+/* Loader Spinner */
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
 
-/* Custom Loader */
 .loader {
   border-top-color: #2563eb;
   animation: spin 0.8s linear infinite;
 }
 
-/* Card Hover/Touch Effect */
-.card-hover-effect {
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s;
-  will-change: transform;
-}
-
-.card-hover-effect:active {
-  transform: scale(0.97);
-}
-
-/* Navigation Bar */
-.nav-button {
-  position: relative;
-  overflow: hidden;
-}
-
+/* Navigation Active State */
 .nav-button.active-nav {
   color: #2563eb;
   background-color: #eff6ff;
@@ -206,36 +217,4 @@ body {
   background-color: #2563eb;
   border-radius: 50%;
   margin-bottom: 6px;
-}
-
-/* =========================================
-   6. MODAL SYSTEM
-   ========================================= */
-.modal {
-  transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
-}
-
-.modal-hidden {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.modal-visible {
-  opacity: 1;
-  pointer-events: auto;
-  backdrop-filter: blur(8px); /* Glass effect background */
-}
-
-.modal-visible > div {
-  animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-/* =========================================
-   7. GLASSMORPHISM & BLURS
-   ========================================= */
-.glass {
-  background: rgba(255, 255, 255, 0.7);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.5);
 }
