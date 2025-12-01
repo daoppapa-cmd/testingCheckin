@@ -3,10 +3,11 @@
 import { studentData } from "./name.js"; // <--- បន្ថែមថ្មី
 // ... (imports ពី Firebase ដទៃទៀតទុកនៅដដែល) ...
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import {
-  getAuth,
-  signInAnonymously,
-  onAuthStateChanged,
+// ✅ ត្រូវ៖
+import { 
+  getAuth, 
+  signInAnonymously, 
+  onAuthStateChanged // <--- ត្រូវមានពាក្យនេះ
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   getFirestore,
@@ -877,36 +878,34 @@ function loadEmployeesFromLocal() {
   }
 }
 
-function setupAuthListener() {
-    onAuthStateChanged(authAttendance, (user) => {
-      if (user) {
-        loadAIModels();
-      } else {
-        signInAnonymously(authAttendance).catch((error) => {
-             showMessage("បញ្ហា", `Login Error: ${error.message}`, true);
-        });
-      }
-    });
-}
+// ❌ កុំសរសេរ៖ authAttendance.onAuthStateChanged(...)
 
+// ✅ ត្រូវសរសេរ៖
+function setupAuthListener() {
+  // ប្រើ function onAuthStateChanged ដាច់ដោយឡែក ហើយដាក់ authAttendance ជា parameter
+  onAuthStateChanged(authAttendance, (user) => {
+    if (user) {
+      loadAIModels();
+    } else {
+      signInAnonymously(authAttendance).catch((error) => {
+        showMessage("បញ្ហា", `Login Error: ${error.message}`, true);
+      });
+    }
+  });
+}
 async function initializeAppFirebase() {
   try {
-    // ... (កូដ Attendance និង Leave ទុកដដែល) ...
-
-    // --- លុប ឬ Comment ផ្នែក Employee List ចោល ---
-    /* const employeeApp = initializeApp(firebaseConfigEmployeeList, "employeeApp");
-    dbEmployeeList = getDatabase(employeeApp);
-    */
-    // ------------------------------------------------
-
-    setLogLevel("silent");
-
-    setupAuthListener();
-    listenToShiftSettings();
+    const attendanceApp = initializeApp(firebaseConfigAttendance);
+    dbAttendance = getFirestore(attendanceApp);
     
-    // ហៅ function ទាញទិន្នន័យពី Local មកប្រើ
-    loadEmployeesFromLocal(); // <--- ហៅ function ថ្មីនៅទីនេះ
+    // ✅ ត្រូវប្រាកដថាមានបន្ទាត់នេះ៖
+    authAttendance = getAuth(attendanceApp); 
 
+    // ... (កូដផ្សេងទៀត) ...
+
+    setupAuthListener(); // ហៅនៅទីនេះ
+
+    // ...
   } catch (error) {
     showMessage("Error", error.message, true);
   }
