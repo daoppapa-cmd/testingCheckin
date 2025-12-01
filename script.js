@@ -1059,7 +1059,9 @@ function loadEmployeesFromLocal() {
 
 // ✅ ត្រូវសរសេរ៖
 function setupAuthListener() {
-  // ប្រើ function onAuthStateChanged ដាច់ដោយឡែក ហើយដាក់ authAttendance ជា parameter
+  // ❌ ខុស៖ authAttendance.onAuthStateChanged(...) 
+  
+  // ✅ ត្រូវ៖ ដាក់ authAttendance ក្នុងវង់ក្រចកវិញ
   onAuthStateChanged(authAttendance, (user) => {
     if (user) {
       loadAIModels();
@@ -1072,15 +1074,27 @@ function setupAuthListener() {
 }
 async function initializeAppFirebase() {
   try {
-    // ... (កូដផ្សេងទៀតនៅដដែល) ...
+    const attendanceApp = initializeApp(firebaseConfigAttendance);
+    dbAttendance = getFirestore(attendanceApp);
+    
+    // ❌ ខុស៖ const authAttendance = ... (កុំដាក់ const/let)
+    // ✅ ត្រូវ៖
+    authAttendance = getAuth(attendanceApp); 
+
+    dbShift = getDatabase(attendanceApp);
+    sessionCollectionRef = collection(dbAttendance, "active_sessions");
+
+    const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
+    dbLeave = getFirestore(leaveApp);
 
     setLogLevel("silent");
 
-    setupAuthListener();
+    // ហៅមុខងារបន្ទាប់ពីកំណត់ authAttendance រួចរាល់
+    setupAuthListener(); 
     
-    // listenToShiftSettings();  <-- លុប ឬ ដាក់ // នៅពីមុខ ដើម្បីកុំឱ្យវាដំណើរការ
-    
+    // listenToShiftSettings(); // បិទចោលព្រោះយើងសរសេរកូដម៉ោងក្នុងនេះហើយ
     loadEmployeesFromLocal();
+
   } catch (error) {
     showMessage("Error", error.message, true);
   }
