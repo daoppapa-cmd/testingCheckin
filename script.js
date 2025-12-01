@@ -973,24 +973,23 @@ function formatTime(date) {
 
 // 11. User Selection & Init
 async function selectUser(employee) {
-  // 1. បង្ហាញ Loading State ភ្លាមៗ (ដាក់ទិន្នន័យបណ្តោះអាសន្នសិន)
-  changeView("homeView"); // ប្តូរទៅ Home ភ្លាម
+  // 1. បង្ហាញ Loading UI
+  changeView("homeView");
   
-  // បង្ហាញ Skeleton (ពណ៌ប្រផេះព្រាលៗ) លើផ្នែកដែលត្រូវរង់ចាំ
-  profileName.innerHTML = `<span class="animate-pulse bg-gray-200 rounded h-6 w-32 inline-block"></span>`;
-  profileId.textContent = "...";
-  // ដាក់រូប Loading សិន
-  profileImage.src = "https://placehold.co/80x80/e2e8f0/e2e8f0?text=..."; 
+  // បង្ហាញ Skeleton Loading
+  if(profileName) profileName.innerHTML = `<span class="animate-pulse bg-gray-200 rounded h-6 w-32 inline-block"></span>`;
+  if(profileId) profileId.textContent = "...";
+  if(profileImage) profileImage.src = "https://placehold.co/80x80/e2e8f0/e2e8f0?text=...";
   
-  // លាក់ប៊ូតុងស្កេន និងប្រវត្តិសិន (កុំឱ្យលោតមកមុន)
-  document.getElementById("dynamicActionArea").style.opacity = "0";
-  document.getElementById("todayActivitySection").style.opacity = "0";
+  const actionArea = document.getElementById("dynamicActionArea");
+  const activityArea = document.getElementById("todayActivitySection");
+  if(actionArea) actionArea.style.opacity = "0";
+  if(activityArea) activityArea.style.opacity = "0";
 
-  // 2. កំណត់ទិន្នន័យក្នុង Memory
+  // 2. កំណត់ទិន្នន័យ User
   currentUser = employee;
   localStorage.setItem("savedEmployeeId", employee.id);
   
-  // 3. ចាប់ផ្តើមទាញទិន្នន័យ (មិនទាន់បង្ហាញ)
   const dayOfWeek = new Date().getDay();
   const dayToShiftKey = ["shiftSun", "shiftMon", "shiftTue", "shiftWed", "shiftThu", "shiftFri", "shiftSat"];
   currentUserShift = currentUser[dayToShiftKey[dayOfWeek]] || "N/A";
@@ -998,29 +997,46 @@ async function selectUser(employee) {
   const firestoreUserId = currentUser.id;
   attendanceCollectionRef = collection(dbAttendance, `attendance/${firestoreUserId}/records`);
 
+  // 3. បង្កើត Session ID ថ្មី
   currentDeviceId = self.crypto.randomUUID();
   localStorage.setItem("currentDeviceId", currentDeviceId);
 
-  // 4. កំណត់ពេលបន្តិច (Simulate Smoothness) ហើយបង្ហាញទិន្នន័យពិត
-  setTimeout(() => {
-    // Update Profile UI
-    profileName.textContent = employee.name;
-    profileId.textContent = `ID: ${employee.id}`;
-    profileImage.src = employee.photoUrl || "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
+  try {
+    // === ចំណុចសំខាន់ដែលបានកែ (FIX) ===
+    // ប្រើ await ដើម្បីរង់ចាំឱ្យការ Save ចូល Database ជោគជ័យសិន
+    // ទើបអនុញ្ញាតឱ្យកូដខាងក្រោមដំណើរការ
+    await setDoc(doc(sessionCollectionRef, employee.id), {
+      deviceId: currentDeviceId,
+      timestamp: new Date().toISOString(),
+      employeeName: employee.name,
+    });
+    // ====================================
+
+    // 4. បន្ទាប់ពី Save ជោគជ័យហើយ ទើប Update UI និងចាប់ផ្តើម Listeners
+    if(profileName) profileName.textContent = employee.name;
+    if(profileId) profileId.textContent = `ID: ${employee.id}`;
+    if(profileImage) profileImage.src = employee.photoUrl || "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
     if (profileDepartment) profileDepartment.textContent = employee.department || "N/A";
     if (profileGroup) profileGroup.textContent = employee.group || "N/A";
     if (profileShift) profileShift.textContent = currentUserShift;
 
-    // ចាប់ផ្តើមស្តាប់ Firebase
-    setupAttendanceListener(); 
+    setupAttendanceListener();
     startLeaveListeners();
-    startSessionListener(employee.id);
+    
+    // ហៅ Listener ក្រោយគេបង្អស់ ដើម្បីធានាថាទិន្នន័យមានក្នុង Database ហើយ
+    startSessionListener(employee.id); 
+    
     prepareFaceMatcher(employee.photoUrl);
 
     if (employeeListContainer) employeeListContainer.classList.add("hidden");
     if (searchInput) searchInput.value = "";
-    
-  }, 300); // Delay 300ms ដើម្បីឱ្យឃើញ Transition រលូន
+
+  } catch (error) {
+    console.error("Error setting session:", error);
+    // បើមានបញ្ហា Save មិនចូល កុំឱ្យ Login
+    showMessage("Error", "បញ្ហាបណ្តាញ (Internet Connection)");
+    changeView("employeeListView");
+  }
 }
 
 function logout() {
