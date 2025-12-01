@@ -412,10 +412,8 @@ function renderMonthlyHistory() {
   const container = document.getElementById("monthlyHistoryContainer");
   if (!container) return;
   
-  // សម្អាតទិន្នន័យចាស់មុនពេលបង្ហាញថ្មី
   container.innerHTML = "";
 
-  // បើគ្មានទិន្នន័យសោះ
   if (currentMonthRecords.length === 0) {
     container.innerHTML = `<p class="text-center py-10 text-slate-400">មិនទាន់មានទិន្នន័យ</p>`;
     return;
@@ -423,26 +421,24 @@ function renderMonthlyHistory() {
 
   const fragment = document.createDocumentFragment();
 
-  currentMonthRecords.forEach((record) => {
-    // --- កែសម្រួលត្រង់នេះ៖ យើងលែងលាក់ថ្ងៃនេះទៀតហើយ ---
-    // const isToday = record.date === getTodayDateString();
-    // if (isToday) return;  <-- ដាក់ Comment ឬលុបចោល ដើម្បីឱ្យបង្ហាញថ្ងៃនេះដែរ
-    // ------------------------------------------------
-
-    // កំណត់អក្សរ និងពណ៌
+  // ប្រើ index (i) ដើម្បីកំណត់ពេល (Delay)
+  currentMonthRecords.forEach((record, i) => {
+    // ... (កូដពិនិត្យថ្ងៃ និងពណ៌ នៅដដែល) ...
     const checkIn = record.checkIn ? record.checkIn : "---";
     const checkOut = record.checkOut ? record.checkOut : "---";
-
     const ciClass = record.checkIn ? "text-blue-600" : "text-slate-400";
     const coClass = record.checkOut ? "text-blue-600" : "text-slate-400";
-    
-    // បន្ថែមការតុបតែងពិសេសសម្រាប់ "ថ្ងៃនេះ" (Optional)
     const isToday = record.date === getTodayDateString();
     const bgClass = isToday ? "bg-blue-50 border-blue-100" : "bg-white border-slate-50";
 
     const card = document.createElement("div");
-    card.className = `${bgClass} p-4 rounded-2xl shadow-sm border mb-3 transition-all`;
     
+    // === បន្ថែម Class "list-item-anim" នៅទីនេះ ===
+    card.className = `${bgClass} p-4 rounded-2xl shadow-sm border mb-3 list-item-anim`;
+    
+    // === កំណត់ Delay ឱ្យកាតនីមួយៗលោតមកយឺតជាងគ្នាបន្តិច ===
+    card.style.animationDelay = `${i * 0.05}s`; // កាតទី១ 0s, ទី២ 0.05s, ទី៣ 0.1s ...
+
     card.innerHTML = `
         <div class="flex justify-between items-center mb-3">
            <p class="text-sm font-bold text-slate-800">
@@ -450,7 +446,6 @@ function renderMonthlyHistory() {
              ${isToday ? '<span class="ml-2 text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full">Today</span>' : ''}
            </p>
         </div>
-        
         <div class="flex flex-col space-y-2 text-sm">
           <div class="flex justify-between border-b border-gray-100 pb-1">
             <span class="text-slate-500">ចូល</span>
