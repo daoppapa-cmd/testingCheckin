@@ -6,19 +6,13 @@
 body {
   font-family: "Kantumruy Pro", sans-serif;
   -webkit-tap-highlight-color: transparent; /* លុបពណ៌ Highlight ពេលចុចលើ Mobile */
-  overflow: hidden; /* ឃាត់ការ Scroll លើ Body (Scroll តែក្នុង div) */
+  overflow: hidden; /* ឃាត់ការ Scroll លើ Body */
   background-color: #f8fafc;
   user-select: none; /* មិនឱ្យ Select អក្សរ (ដូច App) */
 }
-/* បន្ថែមក្នុង style.css */
 
-#dynamicActionArea, 
-#todayActivitySection {
-  opacity: 0; /* ចាប់ផ្តើមដោយលាក់សិន */
-  will-change: opacity;
-}
 /* =========================================
-   2. UTILITIES (Scroll & Layout)
+   2. UTILITIES
    ========================================= */
 /* លាក់ Scrollbar តែនៅ Scroll បាន */
 .no-scrollbar::-webkit-scrollbar {
@@ -43,33 +37,24 @@ body {
   flex: 1 1 0%;
   min-height: 0;
   height: 100%;
-  overscroll-behavior-y: contain; /* ការពារកុំឱ្យទាញ Refresh */
+  overscroll-behavior-y: contain;
 }
 
 /* =========================================
-   3. INTERACTIVE ANIMATIONS (BUTTONS)
+   3. VIEW TRANSITIONS & LAYOUT
    ========================================= */
-/* ប៊ូតុងទាំងអស់ និង Card ដែលចុចបាន */
-button, 
-.nav-button, 
-.cursor-pointer,
-.card-hover-effect {
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, background-color 0.2s;
-  cursor: pointer;
+.view {
+  /* ចលនាពេលប្តូរផ្ទាំង */
+  animation: slideInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+  will-change: transform, opacity;
+  height: 100%;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: #F8FAFC;
 }
 
-/* ពេលចុច (Active) ឱ្យរួមតូចបន្តិច */
-button:active, 
-.nav-button:active, 
-.cursor-pointer:active,
-.card-hover-effect:active {
-  transform: scale(0.96);
-  opacity: 0.9;
-}
-
-/* =========================================
-   4. VIEW TRANSITIONS (PAGE LOAD)
-   ========================================= */
 @keyframes slideInUp {
   from {
     opacity: 0;
@@ -81,19 +66,30 @@ button:active,
   }
 }
 
-.view {
-  animation: slideInUp 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
-  will-change: transform, opacity;
-  height: 100%;
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  background-color: #F8FAFC;
+/* =========================================
+   4. INTERACTIVE ANIMATIONS (BUTTONS & CARDS)
+   ========================================= */
+button, 
+.nav-button, 
+.cursor-pointer, 
+.modal-btn,
+.card-hover-effect {
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, background-color 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+
+/* ពេលចុច (Active) ឱ្យរួមតូចបន្តិច */
+button:active, 
+.nav-button:active, 
+.cursor-pointer:active,
+.modal-btn:active,
+.card-hover-effect:active {
+  transform: scale(0.96);
+  opacity: 0.9;
 }
 
 /* =========================================
-   5. COMPONENT ANIMATIONS
+   5. SPECIFIC ANIMATIONS
    ========================================= */
 
 /* --- A. List Items Stagger (សម្រាប់ប្រវត្តិ) --- */
@@ -153,7 +149,7 @@ button:active,
   box-shadow: 0 0 15px rgba(96, 165, 250, 0.6);
 }
 
-/* --- E. Soft Pulse (សម្រាប់ប៊ូតុង Check In) --- */
+/* --- E. Pulse (សម្រាប់ប៊ូតុងធំ) --- */
 @keyframes pulse-soft {
   0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
   70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
@@ -164,8 +160,18 @@ button:active,
   animation: pulse-soft 2s infinite;
 }
 
+/* --- F. Loader Spinner --- */
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
+.loader {
+  border-top-color: #2563eb;
+  animation: spin 0.8s linear infinite;
+}
+
 /* =========================================
-   6. MODAL ANIMATION (SPRING EFFECT)
+   6. MODAL SYSTEM (BEAUTIFUL DESIGN)
    ========================================= */
 .modal {
   transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
@@ -179,33 +185,88 @@ button:active,
 .modal-visible {
   opacity: 1;
   pointer-events: auto;
-  backdrop-filter: blur(8px);
+  backdrop-filter: blur(12px); /* ផ្ទៃក្រោយព្រាលខ្លាំង */
+  background-color: rgba(0, 0, 0, 0.3); /* ពណ៌ខ្មៅស្រាលៗ */
 }
 
-/* Animation លោតដូចរ៉ឺស័រ */
+/* ប្រអប់សារ (Modal Box) */
+.modal-box-design {
+  background: rgba(255, 255, 255, 0.95);
+  border-radius: 32px;
+  box-shadow: 0 20px 60px -10px rgba(0, 0, 0, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  padding: 32px 24px;
+  width: 85%;
+  max-width: 320px;
+  text-align: center;
+  /* Animation លោតចេញមក */
+  animation: popInSpring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
 @keyframes popInSpring {
   0% { opacity: 0; transform: scale(0.8) translateY(10px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
 
-.modal-visible > div {
-  animation: popInSpring 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+/* រង្វង់ Icon ក្នុង Modal */
+.status-icon-wrapper {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 20px auto;
+  font-size: 42px;
+  box-shadow: 0 10px 20px -5px rgba(0, 0, 0, 0.05);
+}
+
+/* អក្សរក្នុង Modal */
+.modal-title-text {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 8px;
+  letter-spacing: -0.5px;
+}
+
+.modal-body-text {
+  font-size: 0.9rem;
+  color: #64748b;
+  line-height: 1.6;
+  margin-bottom: 28px;
+  font-weight: 500;
+}
+
+/* ប៊ូតុងក្នុង Modal */
+.modal-btn {
+  width: 100%;
+  padding: 14px;
+  border-radius: 18px;
+  font-weight: 700;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.modal-btn-primary {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4);
+}
+
+.modal-btn-secondary {
+  background-color: #f1f5f9;
+  color: #64748b;
 }
 
 /* =========================================
-   7. OTHER COMPONENTS
+   7. NAVIGATION
    ========================================= */
-/* Loader Spinner */
-@keyframes spin {
-  100% { transform: rotate(360deg); }
+.nav-button {
+  position: relative;
+  overflow: hidden;
 }
 
-.loader {
-  border-top-color: #2563eb;
-  animation: spin 0.8s linear infinite;
-}
-
-/* Navigation Active State */
 .nav-button.active-nav {
   color: #2563eb;
   background-color: #eff6ff;
