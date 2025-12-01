@@ -58,7 +58,7 @@ const shiftSettings = {
   "ពេញម៉ោង": {
     startCheckIn: "07:00 AM",
     endCheckIn: "10:15 AM",
-    startCheckOut: "05:30 PM",
+    startCheckOut: "04:30 PM",
     endCheckOut: "11:50 PM"
   },
   "ពេលយប់": {
