@@ -517,15 +517,22 @@ function listenToShiftSettings() {
 async function loadAIModels() {
   try {
     await Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
-        faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
-        faceapi.nets.faceRecognitionNet.loadFromUri("./models")
+      faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
+      faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
+      faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
     ]);
     modelsLoaded = true;
-    fetchEmployeesFromRTDB(); 
-  } catch (e) { console.error(e); }
-}
+    
+    // ❌ កូដចាស់ (លុបចោល)៖
+    // fetchEmployeesFromRTDB(); 
 
+    // ✅ កូដថ្មី (ជំនួសវិញ)៖
+    loadEmployeesFromLocal(); 
+
+  } catch (e) {
+    console.error(e);
+  }
+}
 async function prepareFaceMatcher(imageUrl) {
   currentUserFaceMatcher = null;
   if (!imageUrl || imageUrl.includes("placehold.co")) return;
