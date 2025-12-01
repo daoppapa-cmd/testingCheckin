@@ -350,42 +350,64 @@ async function mergeAndRenderHistory() {
 function renderTodayHistory() {
   const container = document.getElementById("historyContainer");
   if (!container) return;
+  
+  // សម្អាតទិន្នន័យចាស់
   container.innerHTML = "";
 
   const todayString = getTodayDateString();
-  const todayRecord = currentMonthRecords.find((record) => record.date === todayString);
+  const todayRecord = currentMonthRecords.find(
+    (record) => record.date === todayString
+  );
+
+  // បង្កើត Element ថ្មី
+  const card = document.createElement("div");
+  
+  // ប្រើ animate-slide-up ដើម្បីឱ្យវាលោតឡើងមកដោយរលូន
+  card.className = "animate-slide-up bg-white/80 backdrop-blur-md p-5 rounded-[1.8rem] border border-blue-50 shadow-sm card-hover-effect";
 
   if (!todayRecord) {
-    container.innerHTML = `<p class="text-center py-8 text-slate-400 bg-white rounded-2xl border border-slate-100 border-dashed">មិនទាន់មានទិន្នន័យ</p>`;
-    return;
-  }
-  
-  const checkIn = todayRecord.checkIn || "---";
-  const checkOut = todayRecord.checkOut || "មិនទាន់ចេញ";
-  const ciClass = todayRecord.checkIn ? "text-green-600" : "text-slate-400";
-  const coClass = todayRecord.checkOut ? "text-red-600" : "text-slate-400";
+    // ករណីមិនទាន់មានទិន្នន័យ (ដាក់ឱ្យស្អាតជាងមុន)
+    card.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-6 text-slate-300">
+        <i class="ph-duotone ph-clipboard-text text-4xl mb-2 opacity-50"></i>
+        <p class="text-xs font-medium">មិនទាន់មានទិន្នន័យថ្ងៃនេះ</p>
+      </div>
+    `;
+  } else {
+    // ករណីមានទិន្នន័យ
+    const checkIn = todayRecord.checkIn || "--:--";
+    const checkOut = todayRecord.checkOut || "មិនទាន់ចេញ";
+    
+    // ពណ៌សម្រាប់ម៉ោង
+    const ciColor = todayRecord.checkIn ? "text-green-600 bg-green-50" : "text-slate-400 bg-slate-50";
+    const coColor = todayRecord.checkOut ? "text-red-500 bg-red-50" : "text-slate-400 bg-slate-50";
 
-  const card = document.createElement("div");
-  card.className = "bg-blue-50/50 p-4 rounded-2xl border border-blue-100";
-  card.innerHTML = `
-      <div class="flex items-center justify-between mb-4">
-        <span class="text-xs font-semibold text-blue-500 bg-blue-100 px-2 py-1 rounded">Today</span>
-        <span class="text-sm font-bold text-slate-700">${todayRecord.formattedDate || todayRecord.date}</span>
-      </div>
-      <div class="grid grid-cols-2 gap-4">
-         <div class="text-center p-2 bg-white rounded-xl shadow-sm">
-            <p class="text-xs text-slate-400 mb-1">ចូល</p>
-            <p class="${ciClass} font-bold text-sm">${checkIn}</p>
-         </div>
-         <div class="text-center p-2 bg-white rounded-xl shadow-sm">
-            <p class="text-xs text-slate-400 mb-1">ចេញ</p>
-            <p class="${coClass} font-bold text-sm">${checkOut}</p>
-         </div>
-      </div>
-  `;
+    card.innerHTML = `
+       <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg bg-blue-100/80 text-blue-600 text-[10px] font-bold uppercase tracking-wider">
+              Today
+            </span>
+            <span class="text-xs text-slate-400 font-medium">${todayRecord.formattedDate}</span>
+          </div>
+       </div>
+       
+       <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col items-center p-3 rounded-2xl ${ciColor} transition-all">
+             <span class="text-[10px] opacity-70 mb-1">ចូល</span>
+             <span class="text-lg font-bold tracking-tight">${checkIn}</span>
+          </div>
+          
+          <div class="flex flex-col items-center p-3 rounded-2xl ${coColor} transition-all">
+             <span class="text-[10px] opacity-70 mb-1">ចេញ</span>
+             <span class="text-sm font-bold tracking-tight mt-1">${checkOut}</span>
+          </div>
+       </div>
+    `;
+  }
+
   container.appendChild(card);
 }
-
 function renderMonthlyHistory() {
   const container = document.getElementById("monthlyHistoryContainer");
   if (!container) return;
