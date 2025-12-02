@@ -722,7 +722,7 @@ async function scanLoop() {
         const avgEAR = (leftEAR + rightEAR) / 2;
 
         if(cameraLoadingText) {
-            cameraLoadingText.textContent = "សូមព្រិចភ្នែក (Blink)";
+            cameraLoadingText.textContent = "សូមព្រិចភ្នែក! បន្ទាប់មកងាកមុខបែទៅខាងឆ្វេងខាងស្ដាំ";
             cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
         }
 
