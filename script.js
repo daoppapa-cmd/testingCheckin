@@ -52,9 +52,9 @@ let isScanning = false;
 let isBlinking = false; 
 
 // ✅ កែសម្រួល៖
-const FACE_MATCH_THRESHOLD = 0.45; 
-const BLINK_THRESHOLD = 0.30; 
-const OPEN_EYE_THRESHOLD = 0.32;
+const FACE_MATCH_THRESHOLD = 0.5; 
+const BLINK_THRESHOLD = 0.32; 
+const OPEN_EYE_THRESHOLD = 0.35;
 
 const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
 
@@ -94,7 +94,6 @@ const allowedAreaCoords = [
 
 // --- Firebase Configurations ---
 
-// 1. Attendance & Auth
 const firebaseConfigAttendance = {
   apiKey: "AIzaSyCgc3fq9mDHMCjTRRHD3BPBL31JkKZgXFc",
   authDomain: "checkme-10e18.firebaseapp.com",
@@ -106,7 +105,6 @@ const firebaseConfigAttendance = {
   measurementId: "G-QCJ2JH4WH6",
 };
 
-// 2. Leave Requests
 const firebaseConfigLeave = {
   apiKey: "AIzaSyDjr_Ha2RxOWEumjEeSdluIW3JmyM76mVk",
   authDomain: "dipermisstion.firebaseapp.com",
@@ -117,7 +115,6 @@ const firebaseConfigLeave = {
   measurementId: "G-KDPHXZ7H4B",
 };
 
-// 3. Employee List (Realtime Database) ✅ ថ្មី
 const firebaseConfigEmployeeList = {
   apiKey: "AIzaSyAc2g-t9A7du3K_nI2fJnw_OGxhmLfpP6s",
   authDomain: "dilistname.firebaseapp.com",
@@ -605,11 +602,6 @@ async function loadAIModels() {
       faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
     ]);
     modelsLoaded = true;
-    
-    // ✅ ហៅមុខងារទាញទិន្នន័យពី RTDB (ជំនួសឱ្យ loadEmployeesFromLocal)
-    // ប៉ុន្តែ fetchEmployeesFromRTDB ត្រូវបានហៅរួចហើយក្នុង initializeAppFirebase
-    // ដូច្នេះមិនចាំបាច់ហៅនៅទីនេះទេ។
-    
   } catch (e) {
     console.error("Error loading models:", e);
   }
@@ -648,17 +640,43 @@ async function startFaceScan(action) {
   }
   
   try {
-    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user", width: { ideal: 640 } } });
+    let stream;
+    try {
+        // ព្យាយាមបើកកាមេរ៉ាជាមួយការកំណត់ល្អ (Resolution ខ្ពស់)
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } 
+        });
+    } catch (e) {
+        console.warn("High-res camera failed, trying basic...", e);
+        // បើបរាជ័យ (ដូជានៅលើ Telegram ខ្លះ) ព្យាយាមបើកតាមរបៀបធម្មតា
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+    }
+
+    videoStream = stream;
+
     if(videoElement) {
         videoElement.srcObject = videoStream;
-        videoElement.onplay = () => {
-            isScanning = true;
-            isBlinking = false;
-            scanLoop();
-        };
+        // Telegram/Webview ត្រូវការ play() ច្បាស់លាស់
+        videoElement.setAttribute("playsinline", "true"); 
+        await videoElement.play().catch(e => console.error("Play error:", e));
+
+        isScanning = true;
+        isBlinking = false;
+        
+        // រង់ចាំវីដេអូដើរស្រួលបួលសិន
+        if (videoElement.readyState >= 3) { // HAVE_FUTURE_DATA
+             scanLoop();
+        } else {
+             videoElement.oncanplay = () => scanLoop();
+        }
     }
   } catch (err) {
-    showMessage("Error", "កាមេរ៉ាមានបញ្ហា");
+    console.error("Camera Error:", err);
+    let msg = "កាមេរ៉ាមានបញ្ហា";
+    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+        msg = "សូមអនុញ្ញាត (Allow) ឱ្យប្រើកាមេរ៉ានៅក្នុង Settings។";
+    }
+    showMessage("Error", msg);
     hideCameraModal();
   }
 }
@@ -1100,7 +1118,7 @@ function fetchEmployeesFromRTDB() {
         const dept = (emp.department || "").trim();
         
         const isGroupMatch = group === "IT Support" || group === "DRB";
-        const isDeptMatch = dept === "Training_ជំនាន់២";
+        const isDeptMatch = dept === "training_ជំនាន់២";
         
         // Use OR (||) to include employees matching ANY of these criteria
         return isGroupMatch || isDeptMatch;
