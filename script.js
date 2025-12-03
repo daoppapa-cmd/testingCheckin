@@ -1,9 +1,6 @@
 // ============================================
 // 1. IMPORTS & DEPENDENCIES
 // ============================================
-// ❌ ឈប់ប្រើ name.js ទៀតហើយ
-// import { studentData } from "./name.js"; 
-
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
   getAuth, 
@@ -51,7 +48,7 @@ let videoStream = null;
 let isScanning = false;
 let isBlinking = false; 
 
-// ✅ កែសម្រួល៖ បន្ធូរបន្ថយលក្ខខណ្ឌអោយកាន់តែងាយស្រួល និងលឿន
+// Setting Thresholds
 const FACE_MATCH_THRESHOLD = 0.5; 
 const BLINK_THRESHOLD = 0.32; 
 const OPEN_EYE_THRESHOLD = 0.35;
@@ -94,7 +91,6 @@ const allowedAreaCoords = [
 
 // --- Firebase Configurations ---
 
-// 1. Attendance & Auth
 const firebaseConfigAttendance = {
   apiKey: "AIzaSyCgc3fq9mDHMCjTRRHD3BPBL31JkKZgXFc",
   authDomain: "checkme-10e18.firebaseapp.com",
@@ -106,7 +102,6 @@ const firebaseConfigAttendance = {
   measurementId: "G-QCJ2JH4WH6",
 };
 
-// 2. Leave Requests
 const firebaseConfigLeave = {
   apiKey: "AIzaSyDjr_Ha2RxOWEumjEeSdluIW3JmyM76mVk",
   authDomain: "dipermisstion.firebaseapp.com",
@@ -117,7 +112,6 @@ const firebaseConfigLeave = {
   measurementId: "G-KDPHXZ7H4B",
 };
 
-// 3. Employee List (Realtime Database) ✅ ថ្មី
 const firebaseConfigEmployeeList = {
   apiKey: "AIzaSyAc2g-t9A7du3K_nI2fJnw_OGxhmLfpP6s",
   authDomain: "dilistname.firebaseapp.com",
@@ -605,11 +599,6 @@ async function loadAIModels() {
       faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
     ]);
     modelsLoaded = true;
-    
-    // ✅ ហៅមុខងារទាញទិន្នន័យពី RTDB (ជំនួសឱ្យ loadEmployeesFromLocal)
-    // ប៉ុន្តែ fetchEmployeesFromRTDB ត្រូវបានហៅរួចហើយក្នុង initializeAppFirebase
-    // ដូច្នេះមិនចាំបាច់ហៅនៅទីនេះទេ។
-    
   } catch (e) {
     console.error("Error loading models:", e);
   }
@@ -689,7 +678,6 @@ async function scanLoop() {
         return setTimeout(scanLoop, 100);
     }
 
-    // ប្រើ Option ដែលលឿនជាងមុន
     const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
     const detection = await faceapi.detectSingleFace(videoElement, options).withFaceLandmarks().withFaceDescriptor();
 
@@ -698,7 +686,7 @@ async function scanLoop() {
             cameraLoadingText.textContent = "កំពុងស្វែងរកមុខ...";
             cameraLoadingText.className = "text-white font-bold text-lg mb-1";
         }
-        return setTimeout(scanLoop, 30); // 🚀 ពិនិត្យញឹកញាប់ជាងមុន (30ms)
+        return setTimeout(scanLoop, 30);
     }
 
     if (!currentUserFaceMatcher) {
@@ -723,9 +711,6 @@ async function scanLoop() {
             cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
         }
 
-        // Debugging log (optional, remove in prod)
-        // console.log("EAR:", avgEAR, "Blinking:", isBlinking);
-
         if (avgEAR < BLINK_THRESHOLD) {
             isBlinking = true; 
         } 
@@ -735,7 +720,7 @@ async function scanLoop() {
             isBlinking = false;
             processScanSuccess();
         } else {
-             setTimeout(scanLoop, 30); // 🚀 ពិនិត្យញឹកញាប់ជាងមុន
+             setTimeout(scanLoop, 30);
         }
 
     } else {
@@ -1055,7 +1040,7 @@ function checkAutoLogin() {
     }
 }
 
-// ✅ មុខងារថ្មី៖ ទាញទិន្នន័យពី Realtime Database
+// ✅ មុខងារថ្មី៖ ទាញទិន្នន័យពី Realtime Database (Updated with Filters)
 function fetchEmployeesFromRTDB() {
   changeView("loadingView");
   const studentsRef = ref(dbEmployeeList, 'students');
@@ -1074,10 +1059,11 @@ function fetchEmployeesFromRTDB() {
         return {
             id: String(key).trim(),
             name: student["ឈ្មោះ"] || "N.A",
-            // Update mapping to use "ផ្នែកការងារ" for department as implied by filtering request
+            // Use ផ្នែកការងារ for department filtering
             department: student["ផ្នែកការងារ"] || "N.A", 
             photoUrl: student["រូបថត"] || null,
-            group: student["ក្រុម"] || "N/A",
+            // Use ក្រុម for group filtering
+            group: student["ក្រុម"] || "N.A", 
             gender: student["ភេទ"] || "N/A",
             grade: student["ថ្នាក់"] || "N/A",
             
@@ -1094,8 +1080,11 @@ function fetchEmployeesFromRTDB() {
         // Group: "IT Support" OR "DRB"
         // AND
         // Department: "training_ជំនាន់២"
-        const isTargetGroup = emp.group === "IT Support" || emp.group === "DRB";
-        const isTargetDept = emp.department === "training_ជំនាន់២";
+        const group = (emp.group || "").trim();
+        const dept = (emp.department || "").trim();
+        
+        const isTargetGroup = group === "IT Support" || group === "DRB";
+        const isTargetDept = dept === "training_ជំនាន់២";
         
         return isTargetGroup && isTargetDept;
     });
@@ -1106,6 +1095,9 @@ function fetchEmployeesFromRTDB() {
     if (loadingView.style.display !== 'none') {
          // checkAutoLogin will handle view change if logged in
          // If not, we stay at employeeListView
+         if (!localStorage.getItem("savedEmployeeId")) {
+             changeView("employeeListView");
+         }
     }
   }, (error) => {
       console.error(error);
@@ -1148,7 +1140,7 @@ async function initializeAppFirebase() {
     setLogLevel("silent");
 
     setupAuthListener();
-    // ✅ ហៅមុខងារថ្មី
+    // ✅ ហៅមុខងារថ្មី (Call the new function)
     fetchEmployeesFromRTDB();
 
   } catch (error) {
