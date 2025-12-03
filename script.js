@@ -52,11 +52,8 @@ let isScanning = false;
 let isBlinking = false; 
 
 // ✅ កែសម្រួល៖ បន្ធូរបន្ថយលក្ខខណ្ឌអោយកាន់តែងាយស្រួល និងលឿន
-// ១. បន្ធូរការផ្ទៀងផ្ទាត់មុខ (0.5) ដើម្បីកុំឱ្យដាច់ពេលបិទភ្នែក
 const FACE_MATCH_THRESHOLD = 0.5; 
-// ២. កំណត់កម្រិតបិទភ្នែក (ធូរជាងមុន 0.32 ងាយស្រួលចាប់ជាង)
 const BLINK_THRESHOLD = 0.32; 
-// ៣. កំណត់កម្រិតបើកភ្នែក (0.35 គឺចាត់ទុកថាបើកវិញហើយ)
 const OPEN_EYE_THRESHOLD = 0.35;
 
 const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
@@ -722,7 +719,7 @@ async function scanLoop() {
         const avgEAR = (leftEAR + rightEAR) / 2;
 
         if(cameraLoadingText) {
-            cameraLoadingText.textContent = "សូមព្រិចភ្នែក! បន្ទាប់មកងាកមុខបែទៅខាងឆ្វេងខាងស្ដាំ";
+            cameraLoadingText.textContent = "សូមព្រិចភ្នែក (Blink)";
             cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
         }
 
@@ -1077,7 +1074,8 @@ function fetchEmployeesFromRTDB() {
         return {
             id: String(key).trim(),
             name: student["ឈ្មោះ"] || "N.A",
-            department: student["ថ្នាក់"] || "N/A", 
+            // Update mapping to use "ផ្នែកការងារ" for department as implied by filtering request
+            department: student["ផ្នែកការងារ"] || "N.A", 
             photoUrl: student["រូបថត"] || null,
             group: student["ក្រុម"] || "N/A",
             gender: student["ភេទ"] || "N/A",
@@ -1091,7 +1089,16 @@ function fetchEmployeesFromRTDB() {
             shiftSat: schedule["សៅរ៍"] || null,
             shiftSun: schedule["អាទិត្យ"] || null,
         };
-    }).filter(emp => emp.group !== "ការងារក្រៅ" && emp.group !== "បុគ្គលិក");
+    }).filter(emp => {
+        // Filter condition:
+        // Group: "IT Support" OR "DRB"
+        // AND
+        // Department: "training_ជំនាន់២"
+        const isTargetGroup = emp.group === "IT Support" || emp.group === "DRB";
+        const isTargetDept = emp.department === "training_ជំនាន់២";
+        
+        return isTargetGroup && isTargetDept;
+    });
 
     renderEmployeeList(allEmployees);
     checkAutoLogin(); 
