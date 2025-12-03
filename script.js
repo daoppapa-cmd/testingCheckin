@@ -1078,15 +1078,16 @@ function fetchEmployeesFromRTDB() {
     }).filter(emp => {
         // Filter condition:
         // Group: "IT Support" OR "DRB"
-        // AND
+        // OR
         // Department: "training_ជំនាន់២"
         const group = (emp.group || "").trim();
         const dept = (emp.department || "").trim();
         
-        const isTargetGroup = group === "IT Support" || group === "DRB";
-        const isTargetDept = dept === "training_ជំនាន់២";
+        const isGroupMatch = group === "IT Support" || group === "DRB";
+        const isDeptMatch = dept === "training_ជំនាន់២";
         
-        return isTargetGroup && isTargetDept;
+        // Use OR (||) to include employees matching ANY of these criteria
+        return isGroupMatch || isDeptMatch;
     });
 
     renderEmployeeList(allEmployees);
