@@ -1118,7 +1118,7 @@ function fetchEmployeesFromRTDB() {
         const dept = (emp.department || "").trim();
         
         //const isGroupMatch = group === "IT Support" || group === "DRB";
-        const isDeptMatch = dept === "training_ជំនាន់២";
+        const isDeptMatch = dept === "Training_ជំនាន់២";
         
         // Use OR (||) to include employees matching ANY of these criteria
         //return isGroupMatch || isDeptMatch;
