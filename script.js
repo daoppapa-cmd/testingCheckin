@@ -1,6 +1,9 @@
 // ============================================
 // 1. IMPORTS & DEPENDENCIES
 // ============================================
+// ❌ ឈប់ប្រើ name.js ទៀតហើយ
+// import { studentData } from "./name.js"; 
+
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import { 
   getAuth, 
@@ -48,10 +51,10 @@ let videoStream = null;
 let isScanning = false;
 let isBlinking = false; 
 
-// Setting Thresholds
-const FACE_MATCH_THRESHOLD = 0.5; 
-const BLINK_THRESHOLD = 0.32; 
-const OPEN_EYE_THRESHOLD = 0.35;
+// ✅ កែសម្រួល៖
+const FACE_MATCH_THRESHOLD = 0.45; 
+const BLINK_THRESHOLD = 0.30; 
+const OPEN_EYE_THRESHOLD = 0.32;
 
 const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
 
@@ -91,6 +94,7 @@ const allowedAreaCoords = [
 
 // --- Firebase Configurations ---
 
+// 1. Attendance & Auth
 const firebaseConfigAttendance = {
   apiKey: "AIzaSyCgc3fq9mDHMCjTRRHD3BPBL31JkKZgXFc",
   authDomain: "checkme-10e18.firebaseapp.com",
@@ -102,6 +106,7 @@ const firebaseConfigAttendance = {
   measurementId: "G-QCJ2JH4WH6",
 };
 
+// 2. Leave Requests
 const firebaseConfigLeave = {
   apiKey: "AIzaSyDjr_Ha2RxOWEumjEeSdluIW3JmyM76mVk",
   authDomain: "dipermisstion.firebaseapp.com",
@@ -112,6 +117,7 @@ const firebaseConfigLeave = {
   measurementId: "G-KDPHXZ7H4B",
 };
 
+// 3. Employee List (Realtime Database) ✅ ថ្មី
 const firebaseConfigEmployeeList = {
   apiKey: "AIzaSyAc2g-t9A7du3K_nI2fJnw_OGxhmLfpP6s",
   authDomain: "dilistname.firebaseapp.com",
@@ -599,16 +605,23 @@ async function loadAIModels() {
       faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
     ]);
     modelsLoaded = true;
+    
+    // ✅ ហៅមុខងារទាញទិន្នន័យពី RTDB (ជំនួសឱ្យ loadEmployeesFromLocal)
+    // ប៉ុន្តែ fetchEmployeesFromRTDB ត្រូវបានហៅរួចហើយក្នុង initializeAppFirebase
+    // ដូច្នេះមិនចាំបាច់ហៅនៅទីនេះទេ។
+    
   } catch (e) {
     console.error("Error loading models:", e);
   }
 }
 
+// ✅ កែសម្រួល៖ ប្រើរូបភាពពី DOM ផ្ទាល់ ជំនួសឱ្យការ Download ថ្មី
 async function prepareFaceMatcher(imgElement) {
   currentUserFaceMatcher = null;
   if (!imgElement) return;
   
   try {
+    // ប្រើរូបភាពដែល Load រួចស្រាប់នៅក្នុង HTML
     const detection = await faceapi.detectSingleFace(imgElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
     
     if (detection) {
@@ -686,7 +699,7 @@ async function scanLoop() {
             cameraLoadingText.textContent = "កំពុងស្វែងរកមុខ...";
             cameraLoadingText.className = "text-white font-bold text-lg mb-1";
         }
-        return setTimeout(scanLoop, 30);
+        return setTimeout(scanLoop, 30); // 🚀 ពិនិត្យញឹកញាប់ជាងមុន (30ms)
     }
 
     if (!currentUserFaceMatcher) {
@@ -711,6 +724,9 @@ async function scanLoop() {
             cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
         }
 
+        // Debugging log (optional, remove in prod)
+        // console.log("EAR:", avgEAR, "Blinking:", isBlinking);
+
         if (avgEAR < BLINK_THRESHOLD) {
             isBlinking = true; 
         } 
@@ -720,7 +736,7 @@ async function scanLoop() {
             isBlinking = false;
             processScanSuccess();
         } else {
-             setTimeout(scanLoop, 30);
+             setTimeout(scanLoop, 30); // 🚀 ពិនិត្យញឹកញាប់ជាងមុន
         }
 
     } else {
