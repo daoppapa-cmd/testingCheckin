@@ -1179,11 +1179,12 @@ function fetchEmployeesFromRTDB() {
         const group = (emp.group || "").trim();
         const dept = (emp.department || "").trim();
         
-        const isGroupMatch = group === "IT Support" || group === "DRB";
-        const isDeptMatch = dept === "training_ជំនាន់២";
+        //const isGroupMatch = group === "IT Support" || group === "DRB";
+        const isDeptMatch = dept === "Training_ជំនាន់២";
         
         // Use AND (&&) to include employees matching BOTH criteria
-        return isGroupMatch && isDeptMatch;
+        //return isGroupMatch && isDeptMatch;
+        return isDeptMatch;
     });
 
     renderEmployeeList(allEmployees);
