@@ -1185,7 +1185,7 @@ function fetchEmployeesFromRTDB() {
         
         // Use OR (||) to include employees matching ANY of these criteria
         //return isGroupMatch || isDeptMatch;
-        return isGroupMatch;
+        return isDeptMatch;
     });
 
     renderEmployeeList(allEmployees);
