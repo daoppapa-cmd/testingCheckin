@@ -46,10 +46,13 @@ let currentUserFaceMatcher = null;
 let currentScanAction = null;
 let videoStream = null;
 let isScanning = false;
+let isBlinking = false; 
 let profileFaceError = false;
 
-// ✅ កែសម្រួល៖ កំណត់ Threshold មក 0.5 វិញ និងដកការកំណត់ Blink ចេញ
+// ✅ Setting Thresholds (រក្សាទុកការកំណត់ដែលងាយស្រួលស្កេន)
 const FACE_MATCH_THRESHOLD = 0.5; 
+const BLINK_THRESHOLD = 0.32; 
+const OPEN_EYE_THRESHOLD = 0.35;
 
 const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
 
@@ -692,6 +695,13 @@ function hideCameraModal() {
   }
 }
 
+function getEyeAspectRadio(eye) {
+    const A = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+    const B = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+    const C = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+    return (A + B) / (2.0 * C);
+}
+
 async function scanLoop() {
     if (!isScanning) return;
     
@@ -730,8 +740,8 @@ async function scanLoop() {
     const match = currentUserFaceMatcher.findBestMatch(detection.descriptor);
     const matchScore = Math.round((1 - match.distance) * 100);
     
+    // ✅ ជោគជ័យភ្លាមៗ មិនបាច់ព្រិចភ្នែក (ដក Blink Check ចេញ)
     if (match.distance <= FACE_MATCH_THRESHOLD) {
-        // ✅ បានស្កេនមុខត្រូវហើយ
         if(cameraLoadingText) {
             cameraLoadingText.textContent = "ជោគជ័យ!";
             cameraLoadingText.className = "text-green-400 font-bold text-lg mb-1 animate-pulse";
@@ -740,7 +750,6 @@ async function scanLoop() {
         processScanSuccess();
 
     } else {
-        
         if(cameraLoadingText) {
             cameraLoadingText.textContent = "មិនត្រូវគ្នា (" + matchScore + "%)";
             cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
@@ -1098,7 +1107,7 @@ function fetchEmployeesFromRTDB() {
         const dept = (emp.department || "").trim();
         
         const isGroupMatch = group === "IT Support" || group === "DRB";
-        const isDeptMatch = dept === "training_ជំនាន់២";
+        const isDeptMatch = dept === "Training_ជំនាន់២";
         
         // Use AND (&&) to include employees matching BOTH criteria
         return isGroupMatch && isDeptMatch;
