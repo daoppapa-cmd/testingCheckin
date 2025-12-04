@@ -48,12 +48,15 @@ let videoStream = null;
 let isScanning = false;
 let profileFaceError = false;
 
-// ✅ Setting Thresholds (រក្សាទុកការកំណត់ដែលងាយស្រួលស្កេន)
-const FACE_MATCH_THRESHOLD = 0.50; // កាត់បន្ថយមកត្រឹម 0.50 ដើម្បីឱ្យងាយស្រួលស្កេនជាងមុនបន្តិច
-const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
+// 🔄 Liveness Check Variables
+let livenessStep = 0; // 0: Match, 1: Smile, 2: Turn Left, 3: Turn Right
 
-// ប្រើប្រាស់ CDN សម្រាប់ Models ដើម្បីកុំឱ្យមានបញ្ហារក Folder មិនឃើញ
-const MODEL_URL = "https://justadudewhohacks.github.io/face-api.js/models";
+// ✅ Setting Thresholds
+const FACE_MATCH_THRESHOLD = 0.5; 
+const SMILE_THRESHOLD = 0.7; // កម្រិតញញឹម
+const HEAD_TURN_THRESHOLD_X = 0.2; // កម្រិតងាកមុខ
+
+const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
 
 const shiftSettings = {
   "ពេញម៉ោង": {
@@ -588,46 +591,32 @@ function startSessionListener(employeeId) {
 }
 
 // ============================================
-// 7. FACE & CAMERA LOGIC (MODIFIED - NO BLINK)
+// 7. FACE & CAMERA LOGIC
 // ============================================
 
 async function loadAIModels() {
   try {
-    // ✅ ប្រើប្រាស់ CDN ជំនួសឱ្យ Local Folder ដើម្បីធានាថា Models Load បានគ្រប់ទីកន្លែង
     await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+      faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
+      faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
+      faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
+      // ✅ Add Expression Net for Smile Detection
+      faceapi.nets.faceExpressionNet.loadFromUri("./models")
     ]);
     modelsLoaded = true;
-    console.log("AI Models Loaded Successfully");
   } catch (e) {
     console.error("Error loading models:", e);
-    showMessage("AI Error", "មិនអាច Load AI Models បានទេ។ សូមព្យាយាមម្តងទៀត។", true);
   }
 }
 
+// ✅ កែសម្រួល៖ ប្រើរូបភាពពី DOM ផ្ទាល់ ជំនួសឱ្យការ Download ថ្មី
 async function prepareFaceMatcher(imgElement) {
   currentUserFaceMatcher = null;
   profileFaceError = false; 
   if (!imgElement) return;
-
-  // ✅ បន្ថែម៖ រង់ចាំទាល់តែ AI Models Load ចប់សិន ទើបអនុញ្ញាតឱ្យដំណើរការ
-  if (!modelsLoaded) {
-      console.log("Waiting for models to load...");
-      let attempts = 0;
-      while (!modelsLoaded && attempts < 20) { // រង់ចាំប្រហែល 10 វិនាទី
-          await new Promise(r => setTimeout(r, 500));
-          attempts++;
-      }
-      if (!modelsLoaded) {
-          console.error("Models failed to load in time.");
-          profileFaceError = true;
-          return;
-      }
-  }
   
   try {
+    // ប្រើរូបភាពដែល Load រួចស្រាប់នៅក្នុង HTML
     const detection = await faceapi.detectSingleFace(imgElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
     
     if (detection) {
@@ -645,8 +634,10 @@ async function prepareFaceMatcher(imgElement) {
 
 async function startFaceScan(action) {
   currentScanAction = action;
+  livenessStep = 0; // ✅ Reset Step
+
   if (!modelsLoaded) { 
-      showMessage("Notice", "AI មិនទាន់ដំណើរការ (Models loading...)."); 
+      showMessage("Notice", "AI មិនទាន់ដំណើរការ (Models not found)."); 
       return; 
   }
   
@@ -677,6 +668,7 @@ async function startFaceScan(action) {
         await videoElement.play().catch(e => console.error("Play error:", e));
 
         isScanning = true;
+        livenessStep = 0; // Reset step
         
         // រង់ចាំវីដេអូដើរស្រួលបួលសិន
         if (videoElement.readyState >= 3) { // HAVE_FUTURE_DATA
@@ -718,7 +710,7 @@ async function scanLoop() {
             cameraLoadingText.textContent = "រូប Profile មើលមិនច្បាស់ (រកមុខមិនឃើញ)";
             cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
         }
-        return; // បញ្ឈប់ការស្កេន
+        return; 
     }
     
     if (videoElement.paused || videoElement.ended || !faceapi.nets.tinyFaceDetector.params) {
@@ -726,42 +718,119 @@ async function scanLoop() {
     }
 
     const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-    const detection = await faceapi.detectSingleFace(videoElement, options).withFaceLandmarks().withFaceDescriptor();
+    // Include expressions if loaded
+    let detection;
+    try {
+      // Try to detect expressions if model loaded (it should be if loadAIModels worked)
+      if (faceapi.nets.faceExpressionNet.params) {
+          detection = await faceapi.detectSingleFace(videoElement, options).withFaceLandmarks().withFaceDescriptor().withFaceExpressions();
+      } else {
+          detection = await faceapi.detectSingleFace(videoElement, options).withFaceLandmarks().withFaceDescriptor();
+      }
+    } catch(e) {
+      console.error("Detect error", e);
+      return setTimeout(scanLoop, 100);
+    }
+
 
     if (!detection) {
         if(cameraLoadingText) {
             cameraLoadingText.textContent = "កំពុងស្វែងរកមុខ...";
             cameraLoadingText.className = "text-white font-bold text-lg mb-1";
         }
-        return setTimeout(scanLoop, 30); 
+        return setTimeout(scanLoop, 30);
     }
 
     if (!currentUserFaceMatcher) {
-         if(cameraLoadingText) {
-             cameraLoadingText.textContent = "កំពុងរៀបចំទិន្នន័យមុខ...";
-             cameraLoadingText.className = "text-yellow-400 font-bold text-sm";
-         }
+         if(cameraLoadingText) cameraLoadingText.textContent = "កំពុងរៀបចំទិន្នន័យមុខ...";
          return setTimeout(scanLoop, 500);
     }
 
     const match = currentUserFaceMatcher.findBestMatch(detection.descriptor);
-    const matchScore = Math.round((1 - match.distance) * 100);
     
-    // ✅ NO BLINK LOGIC - CHECK MATCH ONLY
-    if (match.distance <= FACE_MATCH_THRESHOLD) {
-        isScanning = false;
+    // STEP 0: Verify Identity
+    if (match.distance > FACE_MATCH_THRESHOLD) {
         if(cameraLoadingText) {
-            cameraLoadingText.textContent = "មុខត្រឹមត្រូវ!";
-            cameraLoadingText.className = "text-green-400 font-bold text-lg mb-1";
-        }
-        processScanSuccess();
-    } else {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "មិនត្រូវគ្នា (" + matchScore + "%)";
+            cameraLoadingText.textContent = "មុខមិនត្រូវគ្នា (" + Math.round((1 - match.distance) * 100) + "%)";
             cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
         }
+        // Stay at Step 0 if face doesn't match
+        livenessStep = 0; 
         setTimeout(scanLoop, 100);
+        return;
     }
+
+    // If matched, proceed with Liveness Steps
+    const landmarks = detection.landmarks;
+    const nose = landmarks.getNose()[3]; // Tip of nose (index 30 in 68 points, approx index 3 in getNose array of 9 points?) 
+    // Actually landmarks.positions[30] is nose tip.
+    const noseX = landmarks.positions[30].x;
+    const leftFaceX = landmarks.positions[0].x;  // Left cheek
+    const rightFaceX = landmarks.positions[16].x; // Right cheek
+    
+    // Ratio 0.5 is center. < 0.5 looking left (on screen), > 0.5 looking right
+    const faceTurnRatio = (noseX - leftFaceX) / (rightFaceX - leftFaceX);
+
+    if (livenessStep === 0) {
+        // Matched! Move to Smile
+        livenessStep = 1;
+    }
+
+    if (livenessStep === 1) {
+        if(cameraLoadingText) {
+            cameraLoadingText.textContent = "សូមញញឹមបន្តិច (Smile)";
+            cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
+        }
+
+        // Check Smile
+        let isSmiling = false;
+        if (detection.expressions && detection.expressions.happy > SMILE_THRESHOLD) {
+            isSmiling = true;
+        } else {
+             // Fallback geometry: Mouth width vs Face width? 
+             // Or simplified: just require expression net.
+        }
+
+        if (isSmiling) {
+             livenessStep = 2; // Move to Turn Left
+        }
+    }
+    else if (livenessStep === 2) {
+        if(cameraLoadingText) {
+            cameraLoadingText.textContent = "សូមងាកឆ្វេង (Turn Left)";
+            cameraLoadingText.className = "text-blue-400 font-bold text-lg mb-1 animate-pulse";
+        }
+
+        // Check Turn Left (Nose moves right on mirrored screen, or left in reality)
+        // Let's say user turns head to THEIR left.
+        // On screen (mirrored): Face looks like it turns left. Nose moves to left side of image.
+        // Ratio decreases.
+        if (faceTurnRatio < 0.35) { 
+             livenessStep = 3; // Move to Turn Right
+        }
+    }
+    else if (livenessStep === 3) {
+        if(cameraLoadingText) {
+            cameraLoadingText.textContent = "សូមងាកស្តាំ (Turn Right)";
+            cameraLoadingText.className = "text-blue-400 font-bold text-lg mb-1 animate-pulse";
+        }
+
+        // Check Turn Right
+        if (faceTurnRatio > 0.65) { 
+             livenessStep = 4; // Done
+        }
+    }
+    else if (livenessStep === 4) {
+        if(cameraLoadingText) {
+            cameraLoadingText.textContent = "ជោគជ័យ!";
+            cameraLoadingText.className = "text-green-400 font-bold text-lg mb-1 animate-pulse";
+        }
+        isScanning = false;
+        processScanSuccess();
+        return;
+    }
+
+    setTimeout(scanLoop, 30);
 }
 
 function processScanSuccess() {
@@ -994,18 +1063,22 @@ async function selectUser(employee) {
     if(profileName) profileName.textContent = employee.name;
     if(profileId) profileId.textContent = `ID: ${employee.id}`;
     
+    // ✅ កែសម្រួល៖ ប្រើ onload event ដើម្បីធានាថារូបបាន Load ចប់ទើបអោយ AI ដំណើរការ
     if(profileImage) {
+        // កំណត់ CORS អោយ AI អាចអានរូបបាន
         profileImage.crossOrigin = "Anonymous";
         
         const imgSrc = employee.photoUrl || PLACEHOLDER_IMG;
         profileImage.src = imgSrc;
         
+        // Error Handling
         profileImage.onerror = () => {
             profileImage.onerror = null;
             profileImage.src = PLACEHOLDER_IMG;
         };
 
         // រង់ចាំរូប Load ចប់ ទើបហៅ prepareFaceMatcher
+        // ដោយប្រើ profileImage (Element) ផ្ទាល់ មិនមែន URL ទេ
         profileImage.onload = () => {
              prepareFaceMatcher(profileImage);
         };
@@ -1018,6 +1091,7 @@ async function selectUser(employee) {
     setupAttendanceListener();
     startLeaveListeners();
     startSessionListener(employee.id); 
+    // prepareFaceMatcher ត្រូវបានហៅក្នុង onload ខាងលើហើយ
 
     if(employeeListContainer) employeeListContainer.classList.add("hidden");
     if(searchInput) searchInput.value = "";
@@ -1082,8 +1156,10 @@ function fetchEmployeesFromRTDB() {
         return {
             id: String(key).trim(),
             name: student["ឈ្មោះ"] || "N.A",
+            // Use ផ្នែកការងារ for department filtering
             department: student["ផ្នែកការងារ"] || "N.A", 
             photoUrl: student["រូបថត"] || null,
+            // Use ក្រុម for group filtering
             group: student["ក្រុម"] || "N.A", 
             gender: student["ភេទ"] || "N/A",
             grade: student["ថ្នាក់"] || "N/A",
@@ -1097,17 +1173,26 @@ function fetchEmployeesFromRTDB() {
             shiftSun: schedule["អាទិត្យ"] || null,
         };
     }).filter(emp => {
-        // Filter condition: Training_ជំនាន់២ only
+        // Filter condition:
+        // Group: "IT Support" OR "DRB"
+        // OR
+        // Department: "training_ជំនាន់២"
         const group = (emp.group || "").trim();
         const dept = (emp.department || "").trim();
-        const isDeptMatch = dept === "Training_ជំនាន់២";
-        return isDeptMatch;
+        
+        const isGroupMatch = group === "IT Support" || group === "DRB";
+        const isDeptMatch = dept === "training_ជំនាន់២";
+        
+        // Use OR (||) to include employees matching ANY of these criteria
+        return isGroupMatch || isDeptMatch;
     });
 
     renderEmployeeList(allEmployees);
     checkAutoLogin(); 
     
     if (loadingView.style.display !== 'none') {
+         // checkAutoLogin will handle view change if logged in
+         // If not, we stay at employeeListView
          if (!localStorage.getItem("savedEmployeeId")) {
              changeView("employeeListView");
          }
@@ -1153,6 +1238,7 @@ async function initializeAppFirebase() {
     setLogLevel("silent");
 
     setupAuthListener();
+    // ✅ ហៅមុខងារថ្មី (Call the new function)
     fetchEmployeesFromRTDB();
 
   } catch (error) {
