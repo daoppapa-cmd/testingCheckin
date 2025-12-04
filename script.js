@@ -46,13 +46,10 @@ let currentUserFaceMatcher = null;
 let currentScanAction = null;
 let videoStream = null;
 let isScanning = false;
-let isBlinking = false; 
 let profileFaceError = false;
 
-// ✅ Setting Thresholds (រក្សាទុកការកំណត់ដែលងាយស្រួលស្កេន)
-const FACE_MATCH_THRESHOLD = 0.55; 
-const BLINK_THRESHOLD = 0.28; 
-const OPEN_EYE_THRESHOLD = 0.32;
+// ✅ កែសម្រួល៖ កំណត់ Threshold មក 0.5 វិញ និងដកការកំណត់ Blink ចេញ
+const FACE_MATCH_THRESHOLD = 0.5; 
 
 const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
 
@@ -605,12 +602,14 @@ async function loadAIModels() {
   }
 }
 
+// ✅ កែសម្រួល៖ ប្រើរូបភាពពី DOM ផ្ទាល់ ជំនួសឱ្យការ Download ថ្មី
 async function prepareFaceMatcher(imgElement) {
   currentUserFaceMatcher = null;
   profileFaceError = false; 
   if (!imgElement) return;
   
   try {
+    // ប្រើរូបភាពដែល Load រួចស្រាប់នៅក្នុង HTML
     const detection = await faceapi.detectSingleFace(imgElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
     
     if (detection) {
@@ -660,7 +659,6 @@ async function startFaceScan(action) {
         await videoElement.play().catch(e => console.error("Play error:", e));
 
         isScanning = true;
-        isBlinking = false;
         
         // រង់ចាំវីដេអូដើរស្រួលបួលសិន
         if (videoElement.readyState >= 3) { // HAVE_FUTURE_DATA
@@ -692,13 +690,6 @@ function hideCameraModal() {
       cameraModal.classList.add("modal-hidden");
       cameraModal.classList.remove("modal-visible");
   }
-}
-
-function getEyeAspectRadio(eye) {
-    const A = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
-    const B = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
-    const C = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
-    return (A + B) / (2.0 * C);
 }
 
 async function scanLoop() {
@@ -740,36 +731,15 @@ async function scanLoop() {
     const matchScore = Math.round((1 - match.distance) * 100);
     
     if (match.distance <= FACE_MATCH_THRESHOLD) {
-        const landmarks = detection.landmarks;
-        const leftEye = landmarks.getLeftEye();
-        const rightEye = landmarks.getRightEye();
-        
-        const leftEAR = getEyeAspectRadio(leftEye);
-        const rightEAR = getEyeAspectRadio(rightEye);
-        const avgEAR = (leftEAR + rightEAR) / 2;
-
+        // ✅ បានស្កេនមុខត្រូវហើយ
         if(cameraLoadingText) {
-            cameraLoadingText.textContent = "សូមព្រិចភ្នែក (Blink)";
-            cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
+            cameraLoadingText.textContent = "ជោគជ័យ!";
+            cameraLoadingText.className = "text-green-400 font-bold text-lg mb-1 animate-pulse";
         }
-
-        if (avgEAR < BLINK_THRESHOLD) {
-            isBlinking = true; 
-        } 
-        
-        if (isBlinking && avgEAR > OPEN_EYE_THRESHOLD) {
-            isScanning = false;
-            isBlinking = false;
-            processScanSuccess();
-        } else {
-             setTimeout(scanLoop, 30); // 🚀 ពិនិត្យញឹកញាប់ជាងមុន
-        }
+        isScanning = false;
+        processScanSuccess();
 
     } else {
-        // Only reset blink if the match is VERY bad (different person).
-        if (match.distance > 0.65) {
-             isBlinking = false;
-        }
         
         if(cameraLoadingText) {
             cameraLoadingText.textContent = "មិនត្រូវគ្នា (" + matchScore + "%)";
