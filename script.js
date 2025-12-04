@@ -53,8 +53,9 @@ let livenessStep = 0; // 0: Match, 1: Smile, 2: Turn Left, 3: Turn Right
 
 // ✅ Setting Thresholds
 const FACE_MATCH_THRESHOLD = 0.5; 
-const SMILE_THRESHOLD = 0.7; // កម្រិតញញឹម
-const HEAD_TURN_THRESHOLD_X = 0.2; // កម្រិតងាកមុខ
+const SMILE_THRESHOLD = 0.05; // កម្រិតញញឹម (Low for easier detection)
+const HEAD_TURN_LEFT_THRESHOLD = 0.6; // ងាកឆ្វេង (Ratio > 0.6)
+const HEAD_TURN_RIGHT_THRESHOLD = 0.4; // ងាកស្តាំ (Ratio < 0.4)
 
 const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
 
@@ -717,11 +718,13 @@ async function scanLoop() {
         return setTimeout(scanLoop, 100);
     }
 
+    // Adjust thresholds based on step: when turning head, recognition score drops, so we relax threshold
+    const currentMatchThreshold = livenessStep > 0 ? 0.65 : FACE_MATCH_THRESHOLD;
+
     const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
     // Include expressions if loaded
     let detection;
     try {
-      // Try to detect expressions if model loaded (it should be if loadAIModels worked)
       if (faceapi.nets.faceExpressionNet.params) {
           detection = await faceapi.detectSingleFace(videoElement, options).withFaceLandmarks().withFaceDescriptor().withFaceExpressions();
       } else {
@@ -748,27 +751,30 @@ async function scanLoop() {
 
     const match = currentUserFaceMatcher.findBestMatch(detection.descriptor);
     
-    // STEP 0: Verify Identity
-    if (match.distance > FACE_MATCH_THRESHOLD) {
+    // Check Identity (with dynamic threshold)
+    if (match.distance > currentMatchThreshold) {
         if(cameraLoadingText) {
             cameraLoadingText.textContent = "មុខមិនត្រូវគ្នា (" + Math.round((1 - match.distance) * 100) + "%)";
             cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
         }
-        // Stay at Step 0 if face doesn't match
-        livenessStep = 0; 
+        // Only reset step if match is VERY poor (totally wrong person)
+        if(match.distance > 0.7) {
+            livenessStep = 0; 
+        }
         setTimeout(scanLoop, 100);
         return;
     }
 
     // If matched, proceed with Liveness Steps
     const landmarks = detection.landmarks;
-    const nose = landmarks.getNose()[3]; // Tip of nose (index 30 in 68 points, approx index 3 in getNose array of 9 points?) 
-    // Actually landmarks.positions[30] is nose tip.
+    // Nose tip: index 30. Left cheek: 0. Right cheek: 16.
     const noseX = landmarks.positions[30].x;
-    const leftFaceX = landmarks.positions[0].x;  // Left cheek
-    const rightFaceX = landmarks.positions[16].x; // Right cheek
+    const leftFaceX = landmarks.positions[0].x;  
+    const rightFaceX = landmarks.positions[16].x; 
     
-    // Ratio 0.5 is center. < 0.5 looking left (on screen), > 0.5 looking right
+    // Ratio 0.5 is center. 
+    // Looking Left (user's left) -> Nose moves right on image -> Ratio increases (>0.5)
+    // Looking Right (user's right) -> Nose moves left on image -> Ratio decreases (<0.5)
     const faceTurnRatio = (noseX - leftFaceX) / (rightFaceX - leftFaceX);
 
     if (livenessStep === 0) {
@@ -782,14 +788,10 @@ async function scanLoop() {
             cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
         }
 
-        // Check Smile
         let isSmiling = false;
         if (detection.expressions && detection.expressions.happy > SMILE_THRESHOLD) {
             isSmiling = true;
-        } else {
-             // Fallback geometry: Mouth width vs Face width? 
-             // Or simplified: just require expression net.
-        }
+        } 
 
         if (isSmiling) {
              livenessStep = 2; // Move to Turn Left
@@ -801,11 +803,8 @@ async function scanLoop() {
             cameraLoadingText.className = "text-blue-400 font-bold text-lg mb-1 animate-pulse";
         }
 
-        // Check Turn Left (Nose moves right on mirrored screen, or left in reality)
-        // Let's say user turns head to THEIR left.
-        // On screen (mirrored): Face looks like it turns left. Nose moves to left side of image.
-        // Ratio decreases.
-        if (faceTurnRatio < 0.35) { 
+        // Check Turn Left (Ratio increases > 0.6)
+        if (faceTurnRatio > HEAD_TURN_LEFT_THRESHOLD) { 
              livenessStep = 3; // Move to Turn Right
         }
     }
@@ -815,8 +814,8 @@ async function scanLoop() {
             cameraLoadingText.className = "text-blue-400 font-bold text-lg mb-1 animate-pulse";
         }
 
-        // Check Turn Right
-        if (faceTurnRatio > 0.65) { 
+        // Check Turn Right (Ratio decreases < 0.4)
+        if (faceTurnRatio < HEAD_TURN_RIGHT_THRESHOLD) { 
              livenessStep = 4; // Done
         }
     }
@@ -1175,17 +1174,16 @@ function fetchEmployeesFromRTDB() {
     }).filter(emp => {
         // Filter condition:
         // Group: "IT Support" OR "DRB"
-        // OR
+        // AND
         // Department: "training_ជំនាន់២"
         const group = (emp.group || "").trim();
         const dept = (emp.department || "").trim();
         
-        //const isGroupMatch = group === "IT Support" || group === "DRB";
-        const isDeptMatch = dept === "Training_ជំនាន់២";
+        const isGroupMatch = group === "IT Support" || group === "DRB";
+        const isDeptMatch = dept === "training_ជំនាន់២";
         
-        // Use OR (||) to include employees matching ANY of these criteria
-        //return isGroupMatch || isDeptMatch;
-        return isDeptMatch;
+        // Use AND (&&) to include employees matching BOTH criteria
+        return isGroupMatch && isDeptMatch;
     });
 
     renderEmployeeList(allEmployees);
