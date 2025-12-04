@@ -52,7 +52,7 @@ let profileFaceError = false;
 let livenessStep = 0; // 0: Match, 1: Smile, 2: Turn Left, 3: Turn Right
 
 // ✅ Setting Thresholds
-const FACE_MATCH_THRESHOLD = 0.5; 
+const FACE_MATCH_THRESHOLD = 0.4; 
 const SMILE_THRESHOLD = 0.05; // កម្រិតញញឹម (Low for easier detection)
 const HEAD_TURN_LEFT_THRESHOLD = 0.6; // ងាកឆ្វេង (Ratio > 0.6)
 const HEAD_TURN_RIGHT_THRESHOLD = 0.4; // ងាកស្តាំ (Ratio < 0.4)
