@@ -2,10 +2,10 @@
 // 1. IMPORTS & DEPENDENCIES
 // ============================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-import { 
-  getAuth, 
-  signInAnonymously, 
-  onAuthStateChanged 
+import {
+  getAuth,
+  signInAnonymously,
+  onAuthStateChanged,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
 import {
   getFirestore,
@@ -21,7 +21,7 @@ import {
   getDatabase,
   ref,
   onValue,
-  get
+  get,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
 // ============================================
@@ -52,38 +52,38 @@ let profileFaceError = false;
 let livenessStep = 0; // 0: Match, 1: Smile, 2: Turn Left, 3: Turn Right
 
 // ✅ Setting Thresholds
-const FACE_MATCH_THRESHOLD = 0.4; 
+const FACE_MATCH_THRESHOLD = 0.4;
 const SMILE_THRESHOLD = 0.05; // កម្រិតញញឹម (Low for easier detection)
 const HEAD_TURN_LEFT_THRESHOLD = 0.6; // ងាកឆ្វេង (Ratio > 0.6)
 const HEAD_TURN_RIGHT_THRESHOLD = 0.4; // ងាកស្តាំ (Ratio < 0.4)
 
-const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img"; 
+const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
 
 const shiftSettings = {
-  "ពេញម៉ោង": {
+  ពេញម៉ោង: {
     startCheckIn: "07:00 AM",
     endCheckIn: "10:15 AM",
     startCheckOut: "04:30 PM",
-    endCheckOut: "11:50 PM"
+    endCheckOut: "11:50 PM",
   },
-  "ពេលយប់": {
+  ពេលយប់: {
     startCheckIn: "05:00 PM",
     endCheckIn: "07:50 PM",
     startCheckOut: "08:55 PM",
-    endCheckOut: "11:50 PM"
+    endCheckOut: "11:50 PM",
   },
-  "មួយព្រឹក": {
+  មួយព្រឹក: {
     startCheckIn: "07:00 AM",
     endCheckIn: "10:15 AM",
     startCheckOut: "11:30 AM",
-    endCheckOut: "11:50 PM"
+    endCheckOut: "11:50 PM",
   },
-  "មួយរសៀល": {
+  មួយរសៀល: {
     startCheckIn: "12:00 PM",
     endCheckIn: "02:30 PM",
     startCheckOut: "05:30 PM",
-    endCheckOut: "11:50 PM"
-  }
+    endCheckOut: "11:50 PM",
+  },
 };
 
 const allowedAreaCoords = [
@@ -124,7 +124,7 @@ const firebaseConfigEmployeeList = {
   storageBucket: "dilistname.firebasestorage.app",
   messagingSenderId: "897983357871",
   appId: "1:897983357871:web:42a046bc9fb3e0543dc55a",
-  measurementId: "G-NQ798D9J6K"
+  measurementId: "G-NQ798D9J6K",
 };
 
 // ============================================
@@ -181,15 +181,15 @@ const employeeListContent = $("employeeListContent");
 // ============================================
 
 function changeView(viewId) {
-  [loadingView, employeeListView, homeView, historyView].forEach(v => {
-      if (v) v.style.display = "none";
+  [loadingView, employeeListView, homeView, historyView].forEach((v) => {
+    if (v) v.style.display = "none";
   });
   const view = $(viewId);
   if (view) view.style.display = "flex";
   if (viewId === "homeView" || viewId === "historyView") {
-    if(footerNav) footerNav.style.display = "block";
+    if (footerNav) footerNav.style.display = "block";
   } else {
-    if(footerNav) footerNav.style.display = "none";
+    if (footerNav) footerNav.style.display = "none";
   }
 }
 
@@ -199,59 +199,88 @@ function showMessage(title, message, isError = false) {
   const iconName = isError ? "ph-warning-circle" : "ph-info";
 
   const modalContent = `
-    <div class="modal-box-design">
-      <div class="status-icon-wrapper ${bgColor} ${iconColor}">
-        <i class="ph-fill ${iconName}"></i>
-      </div>
-      <h3 class="modal-title-text">${title}</h3>
-      <p class="modal-body-text">${message}</p>
-      <button id="modalConfirmButtonAction" class="modal-btn modal-btn-primary">
-        យល់ព្រម
-      </button>
-    </div>
-  `;
+    <div class="modal-box-design">
+      <div class="status-icon-wrapper ${bgColor} ${iconColor}">
+        <i class="ph-fill ${iconName}"></i>
+      </div>
+      <h3 class="modal-title-text">${title}</h3>
+      <p class="modal-body-text">${message}</p>
+      <button id="modalConfirmButtonAction" class="modal-btn modal-btn-primary">
+        យល់ព្រម
+      </button>
+    </div>
+  `;
 
-  if(customModal) {
-      customModal.innerHTML = modalContent;
-      const btn = $("modalConfirmButtonAction");
-      if(btn) btn.onclick = hideMessage;
-      customModal.classList.remove("modal-hidden");
-      customModal.classList.add("modal-visible");
+  if (customModal) {
+    customModal.innerHTML = modalContent;
+    const btn = $("modalConfirmButtonAction");
+    if (btn) btn.onclick = hideMessage;
+    customModal.classList.remove("modal-hidden");
+    customModal.classList.add("modal-visible");
   }
 }
 
 function showConfirmation(title, message, confirmText, onConfirm) {
-  const modalContent = `
-    <div class="modal-box-design">
+  // ពិនិត្យមើលថា តើជាការចាកចេញ (Log Out/Exit) ឬអត់ ដើម្បីប្តូរពណ៌ប៊ូតុង
+  const isDangerAction =
+    title === "Log Out" || title === "Exit" || title === "ចាកចេញ";
+  const confirmBtnClass = isDangerAction
+    ? "modal-btn-danger"
+    : "modal-btn-primary";
+
+  // កំណត់ Icon តាមប្រភេទសកម្មភាព
+  let iconHtml = "";
+  if (isDangerAction) {
+    iconHtml = `
+      <div class="status-icon-wrapper bg-red-50 text-red-500">
+        <i class="ph-duotone ph-sign-out"></i>
+      </div>`;
+  } else {
+    iconHtml = `
       <div class="status-icon-wrapper bg-orange-50 text-orange-500">
         <i class="ph-fill ph-question"></i>
-      </div>
+      </div>`;
+  }
+
+  const modalContent = `
+    <div class="modal-box-design">
+      ${iconHtml}
       <h3 class="modal-title-text">${title}</h3>
       <p class="modal-body-text">${message}</p>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid grid-cols-2 gap-3 mt-4">
         <button id="modalCancelBtn" class="modal-btn modal-btn-secondary">
           បោះបង់
         </button>
-        <button id="modalOkBtn" class="modal-btn modal-btn-primary bg-gradient-to-r from-red-500 to-pink-600 shadow-red-200">
+        <button id="modalOkBtn" class="modal-btn ${confirmBtnClass}">
           ${confirmText}
         </button>
       </div>
     </div>
   `;
-  
-  if(customModal) {
-      customModal.innerHTML = modalContent;
-      $("modalCancelBtn").onclick = hideMessage;
-      $("modalOkBtn").onclick = onConfirm;
-      customModal.classList.remove("modal-hidden");
-      customModal.classList.add("modal-visible");
+
+  if (customModal) {
+    customModal.innerHTML = modalContent;
+
+    // Setup Event Listeners
+    const cancelBtn = $("modalCancelBtn");
+    const okBtn = $("modalOkBtn");
+
+    if (cancelBtn) cancelBtn.onclick = hideMessage;
+    if (okBtn)
+      okBtn.onclick = () => {
+        hideMessage(); // បិទ Modal សិន ចាំធ្វើការ
+        setTimeout(onConfirm, 200); // ទុកពេលឱ្យ Animation បិទចប់បន្តិច
+      };
+
+    customModal.classList.remove("modal-hidden");
+    customModal.classList.add("modal-visible");
   }
 }
 
 function hideMessage() {
-  if(customModal) {
-      customModal.classList.add("modal-hidden");
-      customModal.classList.remove("modal-visible");
+  if (customModal) {
+    customModal.classList.add("modal-hidden");
+    customModal.classList.remove("modal-visible");
   }
 }
 
@@ -265,10 +294,25 @@ function getTodayDateString(date = new Date()) {
 function formatDate(date) {
   try {
     const day = String(date.getDate()).padStart(2, "0");
-    const month = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][date.getMonth()];
+    const month = [
+      "Jan",
+      "Feb",
+      "Mar",
+      "Apr",
+      "May",
+      "Jun",
+      "Jul",
+      "Aug",
+      "Sep",
+      "Oct",
+      "Nov",
+      "Dec",
+    ][date.getMonth()];
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
-  } catch (e) { return ""; }
+  } catch (e) {
+    return "";
+  }
 }
 
 function formatTime(date) {
@@ -280,17 +324,17 @@ function formatTime(date) {
 }
 
 function parseTimeStringToDecimal(timeStr) {
-  if (!timeStr || typeof timeStr !== 'string') return null;
-  const cleanStr = timeStr.replace(/[^a-zA-Z0-9:]/g, ''); 
+  if (!timeStr || typeof timeStr !== "string") return null;
+  const cleanStr = timeStr.replace(/[^a-zA-Z0-9:]/g, "");
   const match = cleanStr.match(/(\d+):(\d+)(AM|PM)/i);
   if (!match) return null;
-  
+
   let hours = parseInt(match[1], 10);
   const minutes = parseInt(match[2], 10);
   const ampm = match[3].toUpperCase();
   if (ampm === "PM" && hours !== 12) hours += 12;
   else if (ampm === "AM" && hours === 12) hours = 0;
-  return hours + (minutes / 60);
+  return hours + minutes / 60;
 }
 
 function checkShiftTime(shiftType, checkType) {
@@ -313,7 +357,7 @@ function checkShiftTime(shiftType, checkType) {
 
   const minTime = parseTimeStringToDecimal(startStr);
   const maxTime = parseTimeStringToDecimal(endStr);
-  
+
   if (minTime === null || maxTime === null) return false;
 
   const now = new Date();
@@ -335,19 +379,19 @@ function getUserLocation() {
     navigator.geolocation.getCurrentPosition(
       (p) => resolve(p.coords),
       (error) => {
-          let msg = "សូមបើក Location";
-          switch(error.code) {
-              case error.PERMISSION_DENIED:
-                  msg = "សូមបើក Location ក្នុង Setting។";
-                  break;
-              case error.POSITION_UNAVAILABLE:
-                  msg = "មិនអាចស្វែងរកទីតាំងបានទេ។";
-                  break;
-              case error.TIMEOUT:
-                  msg = "ការស្វែងរកទីតាំងចំណាយពេលយូរពេក។";
-                  break;
-          }
-          reject(new Error(msg));
+        let msg = "សូមបើក Location";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            msg = "សូមបើក Location ក្នុង Setting។";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            msg = "មិនអាចស្វែងរកទីតាំងបានទេ។";
+            break;
+          case error.TIMEOUT:
+            msg = "ការស្វែងរកទីតាំងចំណាយពេលយូរពេក។";
+            break;
+        }
+        reject(new Error(msg));
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
@@ -358,9 +402,14 @@ function isInsideArea(lat, lon) {
   const polygon = allowedAreaCoords;
   let isInside = false;
   for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const viy = polygon[i][0], vix = polygon[i][1];
-    const vjy = polygon[j][0], vjx = polygon[j][1];
-    if ((viy > lat) !== (vjy > lat) && lon < ((vjx - vix) * (lat - viy)) / (vjy - viy) + vix) {
+    const viy = polygon[i][0],
+      vix = polygon[i][1];
+    const vjy = polygon[j][0],
+      vjx = polygon[j][1];
+    if (
+      viy > lat !== vjy > lat &&
+      lon < ((vjx - vix) * (lat - viy)) / (vjy - viy) + vix
+    ) {
       isInside = !isInside;
     }
   }
@@ -373,22 +422,27 @@ function isInsideArea(lat, lon) {
 
 function mergeAttendanceAndLeave(attendanceRecords, leaveRecords) {
   const mergedMap = new Map();
-  attendanceRecords.forEach(r => mergedMap.set(r.date, { ...r }));
+  attendanceRecords.forEach((r) => mergedMap.set(r.date, { ...r }));
   return Array.from(mergedMap.values());
 }
 
 async function mergeAndRenderHistory() {
-  currentMonthRecords = mergeAttendanceAndLeave(attendanceRecords, leaveRecords);
-  
+  currentMonthRecords = mergeAttendanceAndLeave(
+    attendanceRecords,
+    leaveRecords
+  );
+
   const now = new Date();
   const currentMonthStr = String(now.getMonth() + 1).padStart(2, "0");
   const currentYearStr = String(now.getFullYear());
   const monthPrefix = `${currentYearStr}-${currentMonthStr}`;
 
-  currentMonthRecords = currentMonthRecords.filter(r => r.date.startsWith(monthPrefix));
+  currentMonthRecords = currentMonthRecords.filter((r) =>
+    r.date.startsWith(monthPrefix)
+  );
 
   const todayString = getTodayDateString();
-  
+
   currentMonthRecords.sort((a, b) => {
     if (a.date === todayString) return -1;
     if (b.date === todayString) return 1;
@@ -397,7 +451,7 @@ async function mergeAndRenderHistory() {
 
   renderTodayHistory();
   renderMonthlyHistory();
-  updateButtonState(); 
+  updateButtonState();
 }
 
 function renderTodayHistory() {
@@ -410,39 +464,44 @@ function renderTodayHistory() {
   );
 
   const card = document.createElement("div");
-  card.className = "animate-slide-up bg-white/80 backdrop-blur-md p-5 rounded-[1.8rem] border border-blue-50 shadow-sm card-hover-effect";
+  card.className =
+    "animate-slide-up bg-white/80 backdrop-blur-md p-5 rounded-[1.8rem] border border-blue-50 shadow-sm card-hover-effect";
 
   if (!todayRecord) {
     card.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-6 text-slate-300">
-        <i class="ph-duotone ph-clipboard-text text-4xl mb-2 opacity-50"></i>
-        <p class="text-xs font-medium">មិនទាន់មានទិន្នន័យថ្ងៃនេះ</p>
-      </div>
-    `;
+      <div class="flex flex-col items-center justify-center py-6 text-slate-300">
+        <i class="ph-duotone ph-clipboard-text text-4xl mb-2 opacity-50"></i>
+        <p class="text-xs font-medium">មិនទាន់មានទិន្នន័យថ្ងៃនេះ</p>
+      </div>
+    `;
   } else {
     const checkIn = todayRecord.checkIn || "--:--";
     const checkOut = todayRecord.checkOut || "មិនទាន់ចេញ";
-    const ciColor = todayRecord.checkIn ? "text-green-600 bg-green-50" : "text-slate-400 bg-slate-50";
-    const coColor = todayRecord.checkOut ? "text-red-500 bg-red-50" : "text-slate-400 bg-slate-50";
+    const ciColor = todayRecord.checkIn
+      ? "text-green-600 bg-green-50"
+      : "text-slate-400 bg-slate-50";
+    const coColor = todayRecord.checkOut
+      ? "text-red-500 bg-red-50"
+      : "text-slate-400 bg-slate-50";
 
     card.innerHTML = `
-       <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 rounded-lg bg-blue-100/80 text-blue-600 text-[10px] font-bold uppercase tracking-wider">Today</span>
-            <span class="text-xs text-slate-400 font-medium">${todayRecord.formattedDate}</span>
-          </div>
-       </div>
-       <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col items-center p-3 rounded-2xl ${ciColor} transition-all">
-             <span class="text-[10px] opacity-70 mb-1">ចូល</span>
-             <span class="text-lg font-bold tracking-tight">${checkIn}</span>
-          </div>
-          <div class="flex flex-col items-center p-3 rounded-2xl ${coColor} transition-all">
-             <span class="text-[10px] opacity-70 mb-1">ចេញ</span>
-             <span class="text-sm font-bold tracking-tight mt-1">${checkOut}</span>
-          </div>
-       </div>
-    `;
+       <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <span class="px-2.5 py-1 rounded-lg bg-blue-100/80 text-blue-600 text-[10px] font-bold uppercase tracking-wider">Today</span>
+            <span class="text-xs text-slate-400 font-medium">${todayRecord.formattedDate}</span>
+          </div>
+       </div>
+       <div class="grid grid-cols-2 gap-4">
+          <div class="flex flex-col items-center p-3 rounded-2xl ${ciColor} transition-all">
+             <span class="text-[10px] opacity-70 mb-1">ចូល</span>
+             <span class="text-lg font-bold tracking-tight">${checkIn}</span>
+          </div>
+          <div class="flex flex-col items-center p-3 rounded-2xl ${coColor} transition-all">
+             <span class="text-[10px] opacity-70 mb-1">ចេញ</span>
+             <span class="text-sm font-bold tracking-tight mt-1">${checkOut}</span>
+          </div>
+       </div>
+    `;
   }
   historyContainer.appendChild(card);
 }
@@ -463,37 +522,43 @@ function renderMonthlyHistory() {
     const ciClass = record.checkIn ? "text-blue-600" : "text-slate-400";
     const coClass = record.checkOut ? "text-blue-600" : "text-slate-400";
     const isToday = record.date === getTodayDateString();
-    const bgClass = isToday ? "bg-blue-50 border-blue-100" : "bg-white border-slate-50";
+    const bgClass = isToday
+      ? "bg-blue-50 border-blue-100"
+      : "bg-white border-slate-50";
 
     const card = document.createElement("div");
     card.className = `${bgClass} p-4 rounded-2xl shadow-sm border mb-3 list-item-anim`;
     card.style.animationDelay = `${i * 0.05}s`;
 
     card.innerHTML = `
-        <div class="flex justify-between items-center mb-3">
-           <p class="text-sm font-bold text-slate-800">
-             ${record.formattedDate || record.date}
-             ${isToday ? '<span class="ml-2 text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full">Today</span>' : ''}
-           </p>
-        </div>
-        <div class="flex flex-col space-y-2 text-sm">
-          <div class="flex justify-between border-b border-gray-100 pb-1">
-            <span class="text-slate-500">ចូល</span>
-            <span class="${ciClass} font-medium">${checkIn}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">ចេញ</span>
-            <span class="${coClass} font-medium">${checkOut}</span>
-          </div>
-        </div>
-    `;
+        <div class="flex justify-between items-center mb-3">
+           <p class="text-sm font-bold text-slate-800">
+             ${record.formattedDate || record.date}
+             ${
+      isToday
+        ? '<span class="ml-2 text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full">Today</span>'
+        : ""
+    }
+           </p>
+        </div>
+        <div class="flex flex-col space-y-2 text-sm">
+          <div class="flex justify-between border-b border-gray-100 pb-1">
+            <span class="text-slate-500">ចូល</span>
+            <span class="${ciClass} font-medium">${checkIn}</span>
+          </div>
+          <div class="flex justify-between">
+            <span class="text-slate-500">ចេញ</span>
+            <span class="${coClass} font-medium">${checkOut}</span>
+          </div>
+        </div>
+    `;
     fragment.appendChild(card);
   });
   monthlyHistoryContainer.appendChild(fragment);
 }
 
 function renderEmployeeList(employees) {
-  if(!employeeListContainer) return;
+  if (!employeeListContainer) return;
   employeeListContainer.innerHTML = "";
   employeeListContainer.classList.remove("hidden");
 
@@ -501,27 +566,32 @@ function renderEmployeeList(employees) {
     employeeListContainer.innerHTML = `<p class="text-center text-gray-500 p-3">រកមិនឃើញ។</p>`;
     return;
   }
-  
+
   const fragment = document.createDocumentFragment();
   employees.forEach((emp) => {
     const card = document.createElement("div");
-    card.className = "flex items-center p-3 rounded-xl cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors shadow-sm mb-2 bg-white border border-slate-50";
+    card.className =
+      "flex items-center p-3 rounded-xl cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors shadow-sm mb-2 bg-white border border-slate-50";
+
+    // កែសម្រួល៖ បន្ថែម flex-shrink-0 លើរូបភាព និង min-w-0 លើអក្សរ
     card.innerHTML = `
       <img src="${emp.photoUrl || PLACEHOLDER_IMG}" 
-           class="w-12 h-12 rounded-full object-cover border-2 border-slate-100 mr-3 bg-slate-200"
+           class="w-12 h-12 min-w-[3rem] min-h-[3rem] rounded-full object-cover border-2 border-slate-100 mr-3 bg-slate-200 flex-shrink-0"
            loading="lazy"
            onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}';">
-      <div>
-           <h3 class="text-sm font-bold text-slate-800">${emp.name}</h3>
-           <p class="text-xs text-slate-500">ID: ${emp.id}</p>
+      <div class="flex flex-col overflow-hidden min-w-0">
+           <h3 class="text-sm font-bold text-slate-800 truncate">${
+             emp.name
+           }</h3>
+           <p class="text-xs text-slate-500 truncate">ID: ${emp.id}</p>
       </div>
     `;
+
     card.onmousedown = () => selectUser(emp);
     fragment.appendChild(card);
   });
   employeeListContainer.appendChild(fragment);
 }
-
 // ============================================
 // 6. FIREBASE & LOGIC LISTENERS
 // ============================================
@@ -533,16 +603,18 @@ function setupAttendanceListener() {
   attendanceListener = onSnapshot(attendanceCollectionRef, (querySnapshot) => {
     let allRecords = [];
     querySnapshot.forEach((doc) => allRecords.push(doc.data()));
-    
-    attendanceRecords = allRecords; 
-    currentMonthRecords = mergeAttendanceAndLeave(attendanceRecords, leaveRecords);
-    
-    // Call mergeAndRenderHistory to apply filtering
-    mergeAndRenderHistory(); 
+
+    attendanceRecords = allRecords;
+    currentMonthRecords = mergeAttendanceAndLeave(
+      attendanceRecords,
+      leaveRecords
+    ); // Call mergeAndRenderHistory to apply filtering
+
+    mergeAndRenderHistory();
 
     const actionArea = $("dynamicActionArea");
     const activityArea = $("todayActivitySection");
-    
+
     if (actionArea && activityArea) {
       actionArea.style.transition = "opacity 0.5s ease";
       activityArea.style.transition = "opacity 0.5s ease 0.1s";
@@ -560,11 +632,16 @@ function startLeaveListeners() {
     return;
   }
   const employeeId = currentUser.id;
-  const reFetch = async () => { mergeAndRenderHistory(); };
+  const reFetch = async () => {
+    mergeAndRenderHistory();
+  };
 
   try {
     const qLeave = query(
-      collection(dbLeave, "artifacts/default-app-id/public/data/leave_requests"), 
+      collection(
+        dbLeave,
+        "artifacts/default-app-id/public/data/leave_requests"
+      ),
       where("userId", "==", employeeId)
     );
     leaveCollectionListener = onSnapshot(qLeave, reFetch);
@@ -583,9 +660,15 @@ function startSessionListener(employeeId) {
   if (sessionListener) sessionListener();
   const sessionDocRef = doc(sessionCollectionRef, employeeId);
   sessionListener = onSnapshot(sessionDocRef, (docSnap) => {
-    if (!docSnap.exists()) { forceLogout("Session បានបញ្ចប់។"); return; }
+    if (!docSnap.exists()) {
+      forceLogout("Session បានបញ្ចប់។");
+      return;
+    }
     const sessionData = docSnap.data();
-    if (localStorage.getItem("currentDeviceId") && sessionData.deviceId !== localStorage.getItem("currentDeviceId")) {
+    if (
+      localStorage.getItem("currentDeviceId") &&
+      sessionData.deviceId !== localStorage.getItem("currentDeviceId")
+    ) {
       forceLogout("គណនីកំពុងប្រើនៅកន្លែងផ្សេង។");
     }
   });
@@ -600,9 +683,8 @@ async function loadAIModels() {
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
       faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
-      faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
-      // ✅ Add Expression Net for Smile Detection
-      faceapi.nets.faceExpressionNet.loadFromUri("./models")
+      faceapi.nets.faceRecognitionNet.loadFromUri("./models"), // ✅ Add Expression Net for Smile Detection
+      faceapi.nets.faceExpressionNet.loadFromUri("./models"),
     ]);
     modelsLoaded = true;
   } catch (e) {
@@ -613,23 +695,26 @@ async function loadAIModels() {
 // ✅ កែសម្រួល៖ ប្រើរូបភាពពី DOM ផ្ទាល់ ជំនួសឱ្យការ Download ថ្មី
 async function prepareFaceMatcher(imgElement) {
   currentUserFaceMatcher = null;
-  profileFaceError = false; 
+  profileFaceError = false;
   if (!imgElement) return;
-  
+
   try {
     // ប្រើរូបភាពដែល Load រួចស្រាប់នៅក្នុង HTML
-    const detection = await faceapi.detectSingleFace(imgElement, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-    
+    const detection = await faceapi
+      .detectSingleFace(imgElement, new faceapi.TinyFaceDetectorOptions())
+      .withFaceLandmarks()
+      .withFaceDescriptor();
+
     if (detection) {
-        currentUserFaceMatcher = new faceapi.FaceMatcher(detection.descriptor);
-        console.log("Face Matcher Ready");
+      currentUserFaceMatcher = new faceapi.FaceMatcher(detection.descriptor);
+      console.log("Face Matcher Ready");
     } else {
-        console.warn("No face detected in profile image.");
-        profileFaceError = true; 
-    }
-  } catch (e) { 
-      console.error("Error preparing face matcher:", e);
+      console.warn("No face detected in profile image.");
       profileFaceError = true;
+    }
+  } catch (e) {
+    console.error("Error preparing face matcher:", e);
+    profileFaceError = true;
   }
 }
 
@@ -637,52 +722,57 @@ async function startFaceScan(action) {
   currentScanAction = action;
   livenessStep = 0; // ✅ Reset Step
 
-  if (!modelsLoaded) { 
-      showMessage("Notice", "AI មិនទាន់ដំណើរការ (Models not found)."); 
-      return; 
+  if (!modelsLoaded) {
+    showMessage("Notice", "AI មិនទាន់ដំណើរការ (Models not found).");
+    return;
   }
-  
-  if(cameraModal) {
-      cameraModal.classList.remove("modal-hidden");
-      cameraModal.classList.add("modal-visible");
+
+  if (cameraModal) {
+    cameraModal.classList.remove("modal-hidden");
+    cameraModal.classList.add("modal-visible");
   }
-  
+
   try {
     let stream;
     try {
-        // ព្យាយាមបើកកាមេរ៉ាជាមួយការកំណត់ល្អ (Resolution ខ្ពស់)
-        stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } 
-        });
+      // ព្យាយាមបើកកាមេរ៉ាជាមួយការកំណត់ល្អ (Resolution ខ្ពស់)
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: "user",
+          width: { ideal: 640 },
+          height: { ideal: 480 },
+        },
+      });
     } catch (e) {
-        console.warn("High-res camera failed, trying basic...", e);
-        // បើបរាជ័យ (ដូជានៅលើ Telegram ខ្លះ) ព្យាយាមបើកតាមរបៀបធម្មតា
-        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      console.warn("High-res camera failed, trying basic...", e); // បើបរាជ័យ (ដូជានៅលើ Telegram ខ្លះ) ព្យាយាមបើកតាមរបៀបធម្មតា
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
     }
 
     videoStream = stream;
 
-    if(videoElement) {
-        videoElement.srcObject = videoStream;
-        // Telegram/Webview ត្រូវការ play() ច្បាស់លាស់
-        videoElement.setAttribute("playsinline", "true"); 
-        await videoElement.play().catch(e => console.error("Play error:", e));
+    if (videoElement) {
+      videoElement.srcObject = videoStream; // Telegram/Webview ត្រូវការ play() ច្បាស់លាស់
+      videoElement.setAttribute("playsinline", "true");
+      await videoElement.play().catch((e) => console.error("Play error:", e));
 
-        isScanning = true;
-        livenessStep = 0; // Reset step
-        
-        // រង់ចាំវីដេអូដើរស្រួលបួលសិន
-        if (videoElement.readyState >= 3) { // HAVE_FUTURE_DATA
-             scanLoop();
-        } else {
-             videoElement.oncanplay = () => scanLoop();
-        }
+      isScanning = true;
+      livenessStep = 0; // Reset step // រង់ចាំវីដេអូដើរស្រួលបួលសិន
+
+      if (videoElement.readyState >= 3) {
+        // HAVE_FUTURE_DATA
+        scanLoop();
+      } else {
+        videoElement.oncanplay = () => scanLoop();
+      }
     }
   } catch (err) {
     console.error("Camera Error:", err);
     let msg = "កាមេរ៉ាមានបញ្ហា";
-    if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
-        msg = "សូមអនុញ្ញាត (Allow) ឱ្យប្រើកាមេរ៉ានៅក្នុង Settings។";
+    if (
+      err.name === "NotAllowedError" ||
+      err.name === "PermissionDeniedError"
+    ) {
+      msg = "សូមអនុញ្ញាត (Allow) ឱ្យប្រើកាមេរ៉ានៅក្នុង Settings។";
     }
     showMessage("Error", msg);
     hideCameraModal();
@@ -691,189 +781,220 @@ async function startFaceScan(action) {
 
 function stopCamera() {
   isScanning = false;
-  if (videoStream) videoStream.getTracks().forEach(t => t.stop());
+  if (videoStream) videoStream.getTracks().forEach((t) => t.stop());
   if (videoElement) videoElement.srcObject = null;
 }
-
 function hideCameraModal() {
   stopCamera();
-  if(cameraModal) {
-      cameraModal.classList.add("modal-hidden");
-      cameraModal.classList.remove("modal-visible");
+  if (cameraModal) {
+    cameraModal.classList.add("modal-hidden");
+    cameraModal.classList.remove("modal-visible");
+  }
+  // បើសិនជាបិទកាមេរ៉ា ក្នុងពេលកំពុង Login (ហើយមិនមែនមកពីការស្កេនជោគជ័យទេ) -> Logout
+  if (currentScanAction === "login") {
+    console.log("User cancelled login scan.");
+    logout();
   }
 }
 
 async function scanLoop() {
-    if (!isScanning) return;
-    
-    if (profileFaceError) {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "រូប Profile មើលមិនច្បាស់ (រកមុខមិនឃើញ)";
-            cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
-        }
-        return; 
+  if (!isScanning) return;
+
+  if (profileFaceError) {
+    if (cameraLoadingText) {
+      cameraLoadingText.textContent = "រូប Profile មើលមិនច្បាស់ (រកមុខមិនឃើញ)";
+      cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
     }
-    
-    if (videoElement.paused || videoElement.ended || !faceapi.nets.tinyFaceDetector.params) {
-        return setTimeout(scanLoop, 100);
+    return;
+  }
+
+  if (
+    videoElement.paused ||
+    videoElement.ended ||
+    !faceapi.nets.tinyFaceDetector.params
+  ) {
+    return setTimeout(scanLoop, 100);
+  } // Adjust thresholds based on step: when turning head, recognition score drops, so we relax threshold
+
+  const currentMatchThreshold = livenessStep > 0 ? 0.65 : FACE_MATCH_THRESHOLD;
+
+  const options = new faceapi.TinyFaceDetectorOptions({
+    inputSize: 224,
+    scoreThreshold: 0.5,
+  }); // Include expressions if loaded
+  let detection;
+  try {
+    if (faceapi.nets.faceExpressionNet.params) {
+      detection = await faceapi
+        .detectSingleFace(videoElement, options)
+        .withFaceLandmarks()
+        .withFaceDescriptor()
+        .withFaceExpressions();
+    } else {
+      detection = await faceapi
+        .detectSingleFace(videoElement, options)
+        .withFaceLandmarks()
+        .withFaceDescriptor();
     }
+  } catch (e) {
+    console.error("Detect error", e);
+    return setTimeout(scanLoop, 100);
+  }
 
-    // Adjust thresholds based on step: when turning head, recognition score drops, so we relax threshold
-    const currentMatchThreshold = livenessStep > 0 ? 0.65 : FACE_MATCH_THRESHOLD;
-
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 });
-    // Include expressions if loaded
-    let detection;
-    try {
-      if (faceapi.nets.faceExpressionNet.params) {
-          detection = await faceapi.detectSingleFace(videoElement, options).withFaceLandmarks().withFaceDescriptor().withFaceExpressions();
-      } else {
-          detection = await faceapi.detectSingleFace(videoElement, options).withFaceLandmarks().withFaceDescriptor();
-      }
-    } catch(e) {
-      console.error("Detect error", e);
-      return setTimeout(scanLoop, 100);
+  if (!detection) {
+    if (cameraLoadingText) {
+      cameraLoadingText.textContent = "កំពុងស្វែងរកមុខ...";
+      cameraLoadingText.className = "text-white font-bold text-lg mb-1";
     }
+    return setTimeout(scanLoop, 30);
+  }
 
+  if (!currentUserFaceMatcher) {
+    if (cameraLoadingText)
+      cameraLoadingText.textContent = "កំពុងរៀបចំទិន្នន័យមុខ...";
+    return setTimeout(scanLoop, 500);
+  }
 
-    if (!detection) {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "កំពុងស្វែងរកមុខ...";
-            cameraLoadingText.className = "text-white font-bold text-lg mb-1";
-        }
-        return setTimeout(scanLoop, 30);
+  const match = currentUserFaceMatcher.findBestMatch(detection.descriptor); // Check Identity (with dynamic threshold)
+
+  if (match.distance > currentMatchThreshold) {
+    if (cameraLoadingText) {
+      cameraLoadingText.textContent =
+        "មុខមិនត្រូវគ្នា (" + Math.round((1 - match.distance) * 100) + "%)";
+      cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
+    } // Only reset step if match is VERY poor (totally wrong person)
+    if (match.distance > 0.7) {
+      livenessStep = 0;
     }
+    setTimeout(scanLoop, 100);
+    return;
+  } // If matched, proceed with Liveness Steps
 
-    if (!currentUserFaceMatcher) {
-         if(cameraLoadingText) cameraLoadingText.textContent = "កំពុងរៀបចំទិន្នន័យមុខ...";
-         return setTimeout(scanLoop, 500);
-    }
+  const landmarks = detection.landmarks; // Nose tip: index 30. Left cheek: 0. Right cheek: 16.
+  const noseX = landmarks.positions[30].x;
+  const leftFaceX = landmarks.positions[0].x;
+  const rightFaceX = landmarks.positions[16].x; // Ratio 0.5 is center. // Looking Left (user's left) -> Nose moves right on image -> Ratio increases (>0.5) // Looking Right (user's right) -> Nose moves left on image -> Ratio decreases (<0.5)
 
-    const match = currentUserFaceMatcher.findBestMatch(detection.descriptor);
-    
-    // Check Identity (with dynamic threshold)
-    if (match.distance > currentMatchThreshold) {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "មុខមិនត្រូវគ្នា (" + Math.round((1 - match.distance) * 100) + "%)";
-            cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
-        }
-        // Only reset step if match is VERY poor (totally wrong person)
-        if(match.distance > 0.7) {
-            livenessStep = 0; 
-        }
-        setTimeout(scanLoop, 100);
-        return;
-    }
+  const faceTurnRatio = (noseX - leftFaceX) / (rightFaceX - leftFaceX);
 
-    // If matched, proceed with Liveness Steps
-    const landmarks = detection.landmarks;
-    // Nose tip: index 30. Left cheek: 0. Right cheek: 16.
-    const noseX = landmarks.positions[30].x;
-    const leftFaceX = landmarks.positions[0].x;  
-    const rightFaceX = landmarks.positions[16].x; 
-    
-    // Ratio 0.5 is center. 
-    // Looking Left (user's left) -> Nose moves right on image -> Ratio increases (>0.5)
-    // Looking Right (user's right) -> Nose moves left on image -> Ratio decreases (<0.5)
-    const faceTurnRatio = (noseX - leftFaceX) / (rightFaceX - leftFaceX);
+  if (livenessStep === 0) {
+    // Matched! Move to Smile
+    livenessStep = 1;
+  }
 
-    if (livenessStep === 0) {
-        // Matched! Move to Smile
-        livenessStep = 1;
-    }
-
-    if (livenessStep === 1) {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "សូមញញឹមបន្តិច (Smile)";
-            cameraLoadingText.className = "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
-        }
-
-        let isSmiling = false;
-        if (detection.expressions && detection.expressions.happy > SMILE_THRESHOLD) {
-            isSmiling = true;
-        } 
-
-        if (isSmiling) {
-             livenessStep = 2; // Move to Turn Left
-        }
-    }
-    else if (livenessStep === 2) {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "សូមងាកឆ្វេង (Turn Left)";
-            cameraLoadingText.className = "text-blue-400 font-bold text-lg mb-1 animate-pulse";
-        }
-
-        // Check Turn Left (Ratio increases > 0.6)
-        if (faceTurnRatio > HEAD_TURN_LEFT_THRESHOLD) { 
-             livenessStep = 3; // Move to Turn Right
-        }
-    }
-    else if (livenessStep === 3) {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "សូមងាកស្តាំ (Turn Right)";
-            cameraLoadingText.className = "text-blue-400 font-bold text-lg mb-1 animate-pulse";
-        }
-
-        // Check Turn Right (Ratio decreases < 0.4)
-        if (faceTurnRatio < HEAD_TURN_RIGHT_THRESHOLD) { 
-             livenessStep = 4; // Done
-        }
-    }
-    else if (livenessStep === 4) {
-        if(cameraLoadingText) {
-            cameraLoadingText.textContent = "ជោគជ័យ!";
-            cameraLoadingText.className = "text-green-400 font-bold text-lg mb-1 animate-pulse";
-        }
-        isScanning = false;
-        processScanSuccess();
-        return;
+  if (livenessStep === 1) {
+    if (cameraLoadingText) {
+      cameraLoadingText.textContent = "សូមញញឹមបន្តិច (Smile)";
+      cameraLoadingText.className =
+        "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
     }
 
-    setTimeout(scanLoop, 30);
+    let isSmiling = false;
+    if (
+      detection.expressions &&
+      detection.expressions.happy > SMILE_THRESHOLD
+    ) {
+      isSmiling = true;
+    }
+
+    if (isSmiling) {
+      livenessStep = 2; // Move to Turn Left
+    }
+  } else if (livenessStep === 2) {
+    if (cameraLoadingText) {
+      cameraLoadingText.textContent = "សូមងាកឆ្វេង (Turn Left)";
+      cameraLoadingText.className =
+        "text-blue-400 font-bold text-lg mb-1 animate-pulse";
+    } // Check Turn Left (Ratio increases > 0.6)
+
+    if (faceTurnRatio > HEAD_TURN_LEFT_THRESHOLD) {
+      livenessStep = 3; // Move to Turn Right
+    }
+  } else if (livenessStep === 3) {
+    if (cameraLoadingText) {
+      cameraLoadingText.textContent = "សូមងាកស្តាំ (Turn Right)";
+      cameraLoadingText.className =
+        "text-blue-400 font-bold text-lg mb-1 animate-pulse";
+    } // Check Turn Right (Ratio decreases < 0.4)
+
+    if (faceTurnRatio < HEAD_TURN_RIGHT_THRESHOLD) {
+      livenessStep = 4; // Done
+    }
+  } else if (livenessStep === 4) {
+    if (cameraLoadingText) {
+      cameraLoadingText.textContent = "ជោគជ័យ!";
+      cameraLoadingText.className =
+        "text-green-400 font-bold text-lg mb-1 animate-pulse";
+    }
+    isScanning = false;
+    processScanSuccess();
+    return;
+  }
+
+  setTimeout(scanLoop, 30);
 }
 
+// ✅ 2. កែសម្រួល៖ ពេលស្កេនជោគជ័យ បែងចែក Login និង CheckIn
+// ✅ កែសម្រួល៖ ដោះស្រាយបញ្ហា Login Error (ការពារកុំឱ្យ Logout ពេលស្កេនជាប់)
 function processScanSuccess() {
-    if(cameraLoadingText) cameraLoadingText.innerHTML = '<span class="text-green-400">ជោគជ័យ!</span>';
-    setTimeout(() => {
-        hideCameraModal();
-        if (currentScanAction === "checkIn") handleCheckIn();
-        else handleCheckOut();
-    }, 800);
-}
+  if (cameraLoadingText)
+    cameraLoadingText.innerHTML = '<span class="text-green-400">ជោគជ័យ!</span>';
 
+  setTimeout(() => {
+    // ចងចាំសកម្មភាពបច្ចុប្បន្ន
+    const actionToPerform = currentScanAction;
+
+    // សម្គាល់ថាបានបញ្ចប់ (កុំឱ្យ hideCameraModal ច្រឡំថាបិទចោល)
+    currentScanAction = null;
+
+    hideCameraModal();
+
+    if (actionToPerform === "login") {
+      // ស្កេន Login ជោគជ័យ -> ចូល Home
+      if (currentUser) {
+        finalizeLogin(currentUser);
+      } else {
+        changeView("employeeListView");
+      }
+    } else if (actionToPerform === "checkIn") {
+      handleCheckIn();
+    } else if (actionToPerform === "checkOut") {
+      handleCheckOut();
+    }
+  }, 800);
+}
 // ============================================
 // 8. CHECK-IN / CHECK-OUT LOGIC
 // ============================================
 
 async function handleCheckIn() {
-  if(actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
-  
+  if (actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
+
   try {
-     const coords = await getUserLocation();
-     if (!isInsideArea(coords.latitude, coords.longitude)) {
-         showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
-         updateButtonState();
-         return;
-     }
-     
-     const now = new Date();
-     const todayDocId = getTodayDateString(now);
-     
-     await setDoc(doc(attendanceCollectionRef, todayDocId), {
-       employeeId: currentUser.id,
-       employeeName: currentUser.name,
-       department: currentUser.department,
-       shift: currentUserShift,
-       date: todayDocId,
-       checkInTimestamp: now.toISOString(),
-       formattedDate: formatDate(now),
-       checkIn: formatTime(now),
-       checkInLocation: { lat: coords.latitude, lon: coords.longitude }
-     });
-     
+    const coords = await getUserLocation();
+    if (!isInsideArea(coords.latitude, coords.longitude)) {
+      showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
+      updateButtonState();
+      return;
+    }
+
+    const now = new Date();
+    const todayDocId = getTodayDateString(now);
+
+    await setDoc(doc(attendanceCollectionRef, todayDocId), {
+      employeeId: currentUser.id,
+      employeeName: currentUser.name,
+      department: currentUser.department,
+      shift: currentUserShift,
+      date: todayDocId,
+      checkInTimestamp: now.toISOString(),
+      formattedDate: formatDate(now),
+      checkIn: formatTime(now),
+      checkInLocation: { lat: coords.latitude, lon: coords.longitude },
+    });
   } catch (e) {
-     showMessage("Error", e.message, true);
-     updateButtonState();
+    showMessage("Error", e.message, true);
+    updateButtonState();
   }
 }
 
@@ -890,57 +1011,72 @@ async function handleCheckOut() {
 
     const now = new Date();
     const todayDocId = getTodayDateString(now);
-    
-    await setDoc(doc(attendanceCollectionRef, todayDocId), {
-      employeeId: currentUser.id,
-      employeeName: currentUser.name,
-      department: currentUser.department,
-      shift: currentUserShift,
-      date: todayDocId,
-      formattedDate: formatDate(now),
-      checkOutTimestamp: now.toISOString(),
-      checkOut: formatTime(now),
-      checkOutLocation: { lat: coords.latitude, lon: coords.longitude },
-    }, { merge: true });
 
+    await setDoc(
+      doc(attendanceCollectionRef, todayDocId),
+      {
+        employeeId: currentUser.id,
+        employeeName: currentUser.name,
+        department: currentUser.department,
+        shift: currentUserShift,
+        date: todayDocId,
+        formattedDate: formatDate(now),
+        checkOutTimestamp: now.toISOString(),
+        checkOut: formatTime(now),
+        checkOutLocation: { lat: coords.latitude, lon: coords.longitude },
+      },
+      { merge: true }
+    );
   } catch (e) {
     showMessage("Error", e.message, true);
     updateButtonState();
   }
 }
 
+// ✅ 3. កែសម្រួល៖ ប៊ូតុង Check In/Out មិនហៅ startFaceScan ទេ (ហៅ handle ផ្ទាល់)
 function showActionButton(title, subtitle, icon, gradientClass, action) {
-    if(!actionButtonContainer) return;
-    actionButtonContainer.classList.remove('hidden');
-    
-    actionBtnTitle.textContent = title;
-    actionBtnTitle.className = "text-xl font-bold text-white tracking-wide"; 
-    
-    actionBtnSubtitle.textContent = subtitle;
-    actionBtnSubtitle.className = "text-blue-100 text-[11px] font-medium opacity-90"; 
-    
-    actionBtnIcon.className = `ph-bold ${icon} text-2xl text-white`; 
-    
-    actionBtnBg.className = `absolute inset-0 bg-gradient-to-r ${gradientClass} shadow-lg transition-all duration-500`;
-    
-    const currentBtn = $('mainActionButton');
-    if (currentBtn) {
-        currentBtn.onclick = () => startFaceScan(action);
-        if(action === 'checkIn') {
-             currentBtn.className = "w-full group relative overflow-hidden rounded-[1.8rem] p-1 shadow-lg shadow-blue-300/50 transition-all active:scale-95 hover:shadow-xl btn-pulse";
-        } else {
-             currentBtn.className = "w-full group relative overflow-hidden rounded-[1.8rem] p-1 shadow-lg shadow-red-300/50 transition-all active:scale-95 hover:shadow-xl btn-pulse";
-        }
+  if (!actionButtonContainer) return;
+  actionButtonContainer.classList.remove("hidden");
+
+  actionBtnTitle.textContent = title;
+  actionBtnTitle.className = "text-xl font-bold text-white tracking-wide";
+
+  actionBtnSubtitle.textContent = subtitle;
+  actionBtnSubtitle.className =
+    "text-blue-100 text-[11px] font-medium opacity-90";
+
+  actionBtnIcon.className = `ph-bold ${icon} text-2xl text-white`;
+
+  actionBtnBg.className = `absolute inset-0 bg-gradient-to-r ${gradientClass} shadow-lg transition-all duration-500`;
+
+  const currentBtn = $("mainActionButton");
+  if (currentBtn) {
+    // 🔥 កែត្រង់នេះ៖ ហៅ handleCheckIn ឬ handleCheckOut ផ្ទាល់តែម្តង
+    currentBtn.onclick = () => {
+      if (action === "checkIn") {
+        handleCheckIn();
+      } else {
+        handleCheckOut();
+      }
+    };
+
+    if (action === "checkIn") {
+      currentBtn.className =
+        "w-full group relative overflow-hidden rounded-[1.8rem] p-1 shadow-lg shadow-blue-300/50 transition-all active:scale-95 hover:shadow-xl btn-pulse";
+    } else {
+      currentBtn.className =
+        "w-full group relative overflow-hidden rounded-[1.8rem] p-1 shadow-lg shadow-red-300/50 transition-all active:scale-95 hover:shadow-xl btn-pulse";
     }
+  }
 }
 
 function showStatusMessage(title, desc, icon, iconBgClass) {
-    if(!statusMessageContainer) return;
-    statusMessageContainer.classList.remove('hidden');
-    statusTitle.textContent = title;
-    statusDesc.textContent = desc;
-    statusIcon.className = `ph-duotone ${icon} text-3xl`;
-    statusIconBg.className = `w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3 ${iconBgClass}`;
+  if (!statusMessageContainer) return;
+  statusMessageContainer.classList.remove("hidden");
+  statusTitle.textContent = title;
+  statusDesc.textContent = desc;
+  statusIcon.className = `ph-duotone ${icon} text-3xl`;
+  statusIconBg.className = `w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3 ${iconBgClass}`;
 }
 
 async function updateButtonState() {
@@ -960,9 +1096,8 @@ async function updateButtonState() {
   }
 
   const canCheckIn = checkShiftTime(shift, "checkIn");
-  const canCheckOut = checkShiftTime(shift, "checkOut");
+  const canCheckOut = checkShiftTime(shift, "checkOut"); // 1. Check if already checked out
 
-  // 1. Check if already checked out
   if (todayData && todayData.checkOut) {
     showStatusMessage(
       "កត់ត្រារួចរាល់",
@@ -971,9 +1106,8 @@ async function updateButtonState() {
       "bg-green-100 text-green-600"
     );
     return;
-  }
+  } // 2. Logic for Check In/Out
 
-  // 2. Logic for Check In/Out
   if (todayData && todayData.checkIn) {
     // Already Checked In
     if (canCheckOut) {
@@ -991,7 +1125,7 @@ async function updateButtonState() {
         "ph-hourglass",
         "bg-blue-100 text-blue-600"
       );
-      if(statusIcon) statusIcon.classList.add("animate-breathe");
+      if (statusIcon) statusIcon.classList.add("animate-breathe");
     }
   } else {
     // Not Checked In
@@ -1025,30 +1159,103 @@ async function updateButtonState() {
 // ============================================
 // 9. USER SELECTION & INIT
 // ============================================
-
+// ✅ 1. កែសម្រួល៖ ពេលជ្រើសរើសឈ្មោះ ត្រូវស្កេនមុខសិន (Login Face Scan)
 async function selectUser(employee) {
-  changeView("homeView");
-  
-  // Skeleton / Loading UI
-  if(profileName) profileName.innerHTML = `<span class="animate-pulse bg-gray-200 rounded h-6 w-32 inline-block"></span>`;
-  if(profileId) profileId.textContent = "...";
-  if(profileImage) profileImage.src = PLACEHOLDER_IMG;
-  
-  const actionArea = $("dynamicActionArea");
-  const activityArea = $("todayActivitySection");
-  if(actionArea) actionArea.style.opacity = "0";
-  if(activityArea) activityArea.style.opacity = "0";
+  // ការពារករណីចុចលើទិន្នន័យទទេ
+  if (!employee) return;
+
+  changeView("loadingView");
+  if (typeof cameraLoadingText !== "undefined") {
+    cameraLoadingText.textContent = "កំពុងរៀបចំប្រព័ន្ធសុវត្ថិភាព...";
+  }
 
   currentUser = employee;
   localStorage.setItem("savedEmployeeId", employee.id);
-  
+
+  const tempImg = new Image();
+  tempImg.crossOrigin = "Anonymous";
+  tempImg.src = employee.photoUrl || PLACEHOLDER_IMG;
+
+  tempImg.onload = async () => {
+    try {
+      await prepareFaceMatcher(tempImg);
+      // បើមាន Matcher (រូបប្រើបាន) -> ឱ្យស្កេនមុខ Login
+      if (currentUserFaceMatcher) {
+        startFaceScan("login");
+      } else {
+        // បើរូបថត Profile ខូច ឬមិនច្បាស់ -> ឱ្យចូលដោយប្រុងប្រយ័ត្ន (ឬហាមឃាត់តាមចិត្តអ្នក)
+        alert("រូបថត Profile មិនច្បាស់! អនុញ្ញាតឱ្យចូលដោយមិនស្កេន។");
+        finalizeLogin(employee);
+      }
+    } catch (error) {
+      console.error("Error preparing face:", error);
+      finalizeLogin(employee);
+    }
+  };
+
+  tempImg.onerror = () => {
+    alert("មិនអាចទាញយករូបភាព Profile បាន។");
+    changeView("employeeListView");
+  };
+}
+// ✅ Function ថ្មី៖ ដំណើរការចូលប្រើប្រាស់ ក្រោយពេលស្កេនមុខជោគជ័យ
+// ✅ Function ថ្មី៖ ដំណើរការចូលប្រើប្រាស់ (កែសម្រួលដើម្បីការពារ Error)
+async function finalizeLogin(employee) {
+  // 🔥 ការពារ Error: shiftThu of null
+  if (!employee) {
+    console.error("⛔ Error: finalizeLogin ត្រូវបានហៅដោយគ្មានទិន្នន័យ (null)!");
+    changeView("employeeListView");
+    return;
+  }
+
+  console.log("✅ Finalizing login for:", employee.name);
+  currentUser = employee;
+  localStorage.setItem("savedEmployeeId", employee.id);
+
+  changeView("homeView");
+
+  // កំណត់ UI ឡើងវិញ
+  if (profileName) profileName.textContent = employee.name;
+  if (profileId) profileId.textContent = `ID: ${employee.id}`;
+  if (profileImage) {
+    profileImage.src = employee.photoUrl || PLACEHOLDER_IMG;
+  }
+
+  // Reset Action Buttons
+  const actionArea = $("dynamicActionArea");
+  const activityArea = $("todayActivitySection");
+  if (actionArea) actionArea.style.opacity = "0";
+  if (activityArea) activityArea.style.opacity = "0";
+
+  // គណនា Shift (ការពារ Error)
   const dayOfWeek = new Date().getDay();
-  const dayToShiftKey = ["shiftSun", "shiftMon", "shiftTue", "shiftWed", "shiftThu", "shiftFri", "shiftSat"];
-  currentUserShift = currentUser[dayToShiftKey[dayOfWeek]] || "N/A";
+  const dayToShiftKey = [
+    "shiftSun",
+    "shiftMon",
+    "shiftTue",
+    "shiftWed",
+    "shiftThu",
+    "shiftFri",
+    "shiftSat",
+  ];
 
-  const firestoreUserId = currentUser.id;
-  attendanceCollectionRef = collection(dbAttendance, `attendance/${firestoreUserId}/records`);
+  // ប្រើ employee ផ្ទាល់ដើម្បីយក Shift
+  currentUserShift = employee[dayToShiftKey[dayOfWeek]] || "N/A";
 
+  // បង្ហាញព័ត៌មានបន្ថែម
+  if (profileDepartment)
+    profileDepartment.textContent = employee.department || "N/A";
+  if (profileGroup) profileGroup.textContent = employee.group || "N/A";
+  if (profileShift) profileShift.textContent = currentUserShift;
+
+  // កំណត់ Firebase References
+  const firestoreUserId = employee.id;
+  attendanceCollectionRef = collection(
+    dbAttendance,
+    `attendance/${firestoreUserId}/records`
+  );
+
+  // កត់ត្រា Session
   currentDeviceId = self.crypto.randomUUID();
   localStorage.setItem("currentDeviceId", currentDeviceId);
 
@@ -1058,50 +1265,19 @@ async function selectUser(employee) {
       timestamp: new Date().toISOString(),
       employeeName: employee.name,
     });
-
-    if(profileName) profileName.textContent = employee.name;
-    if(profileId) profileId.textContent = `ID: ${employee.id}`;
-    
-    // ✅ កែសម្រួល៖ ប្រើ onload event ដើម្បីធានាថារូបបាន Load ចប់ទើបអោយ AI ដំណើរការ
-    if(profileImage) {
-        // កំណត់ CORS អោយ AI អាចអានរូបបាន
-        profileImage.crossOrigin = "Anonymous";
-        
-        const imgSrc = employee.photoUrl || PLACEHOLDER_IMG;
-        profileImage.src = imgSrc;
-        
-        // Error Handling
-        profileImage.onerror = () => {
-            profileImage.onerror = null;
-            profileImage.src = PLACEHOLDER_IMG;
-        };
-
-        // រង់ចាំរូប Load ចប់ ទើបហៅ prepareFaceMatcher
-        // ដោយប្រើ profileImage (Element) ផ្ទាល់ មិនមែន URL ទេ
-        profileImage.onload = () => {
-             prepareFaceMatcher(profileImage);
-        };
-    }
-    
-    if(profileDepartment) profileDepartment.textContent = employee.department || "N/A";
-    if(profileGroup) profileGroup.textContent = employee.group || "N/A";
-    if(profileShift) profileShift.textContent = currentUserShift;
-
-    setupAttendanceListener();
-    startLeaveListeners();
-    startSessionListener(employee.id); 
-    // prepareFaceMatcher ត្រូវបានហៅក្នុង onload ខាងលើហើយ
-
-    if(employeeListContainer) employeeListContainer.classList.add("hidden");
-    if(searchInput) searchInput.value = "";
-
-  } catch (error) {
-    console.error("Error setting session:", error);
-    showMessage("Error", "បញ្ហាបណ្តាញ (Internet Connection)");
-    changeView("employeeListView");
+  } catch (e) {
+    console.warn("Session write failed (likely network/adblock):", e);
   }
-}
 
+  // ចាប់ផ្តើមស្តាប់ទិន្នន័យ
+  setupAttendanceListener();
+  startLeaveListeners();
+  startSessionListener(employee.id);
+
+  // សម្អាត Search
+  if (employeeListContainer) employeeListContainer.classList.add("hidden");
+  if (searchInput) searchInput.value = "";
+}
 function logout() {
   currentUser = null;
   localStorage.removeItem("savedEmployeeId");
@@ -1113,10 +1289,10 @@ function logout() {
   attendanceRecords = [];
   leaveRecords = [];
   currentMonthRecords = [];
-  
-  if(historyContainer) historyContainer.innerHTML = "";
-  if(monthlyHistoryContainer) monthlyHistoryContainer.innerHTML = "";
-  
+
+  if (historyContainer) historyContainer.innerHTML = "";
+  if (monthlyHistoryContainer) monthlyHistoryContainer.innerHTML = "";
+
   changeView("employeeListView");
 }
 
@@ -1126,77 +1302,90 @@ function forceLogout(message) {
 }
 
 function checkAutoLogin() {
-    const savedId = localStorage.getItem("savedEmployeeId");
-    if (savedId) {
-        const savedEmp = allEmployees.find(e => e.id === savedId);
-        if (savedEmp) selectUser(savedEmp);
-        else changeView("employeeListView");
+  const savedId = localStorage.getItem("savedEmployeeId");
+
+  if (savedId && allEmployees.length > 0) {
+    // ស្វែងរកទិន្នន័យបុគ្គលិកដែលមានស្រាប់
+    const savedEmp = allEmployees.find((e) => e.id === savedId);
+
+    if (savedEmp) {
+      console.log("🔄 Auto-login found user:", savedEmp.name);
+      // ហៅ finalizeLogin ផ្ទាល់ (រំលងការស្កេនមុខ)
+      finalizeLogin(savedEmp);
     } else {
-        changeView("employeeListView");
+      console.warn("User ID found but not in employee list (maybe deleted?)");
+      changeView("employeeListView");
     }
+  } else {
+    // បើគ្មាន ID ឬទិន្នន័យមិនទាន់មកដល់ -> នៅបញ្ជីឈ្មោះ
+    changeView("employeeListView");
+  }
 }
 
 // ✅ មុខងារថ្មី៖ ទាញទិន្នន័យពី Realtime Database (Updated with Filters)
 function fetchEmployeesFromRTDB() {
   changeView("loadingView");
-  const studentsRef = ref(dbEmployeeList, 'students');
-  onValue(studentsRef, (snapshot) => {
-    const data = snapshot.val();
-    if (!data) {
+  const studentsRef = ref(dbEmployeeList, "students");
+  onValue(
+    studentsRef,
+    (snapshot) => {
+      const data = snapshot.val();
+      if (!data) {
         allEmployees = [];
         renderEmployeeList([]);
         changeView("employeeListView");
         return;
-    }
+      }
 
-    allEmployees = Object.keys(data).map(key => {
-        const student = data[key];
-        const schedule = student["កាលវិភាគ"] || {};
-        return {
+      allEmployees = Object.keys(data)
+        .map((key) => {
+          const student = data[key];
+          const schedule = student["កាលវិភាគ"] || {};
+          return {
             id: String(key).trim(),
-            name: student["ឈ្មោះ"] || "N.A",
-            // Use ផ្នែកការងារ for department filtering
-            department: student["ផ្នែកការងារ"] || "N.A", 
-            photoUrl: student["រូបថត"] || null,
-            // Use ក្រុម for group filtering
-            group: student["ក្រុម"] || "N.A", 
+            name: student["ឈ្មោះ"] || "N.A", // Use ផ្នែកការងារ for department filtering
+            department: student["ផ្នែកការងារ"] || "N.A",
+            photoUrl: student["រូបថត"] || null, // Use ក្រុម for group filtering
+            group: student["ក្រុម"] || "N.A",
             gender: student["ភេទ"] || "N/A",
             grade: student["ថ្នាក់"] || "N/A",
-            
+
             shiftMon: schedule["ចន្ទ"] || null,
             shiftTue: schedule["អង្គារ"] || schedule["អង្គារ៍"] || null,
             shiftWed: schedule["ពុធ"] || null,
-            shiftThu: schedule["ព្រហស្បតិ៍"] || schedule["ព្រហស្បត្តិ៍"] || null,
+            shiftThu:
+              schedule["ព្រហស្បតិ៍"] || schedule["ព្រហស្បត្តិ៍"] || null,
             shiftFri: schedule["សុក្រ"] || null,
             shiftSat: schedule["សៅរ៍"] || null,
             shiftSun: schedule["អាទិត្យ"] || null,
-        };
-    }).filter(emp => {
-       
-        // Department: "training_ជំនាន់២"
-        const group = (emp.group || "").trim();
-        const dept = (emp.department || "").trim();
-        
-        const isGroupMatch = group === "IT Support" || group === "DRB";
-        return isGroupMatch;
-      
-    });
+          };
+        })
+        .filter((emp) => {
+          // Department: "training_ជំនាន់២"
+          const group = (emp.group || "").trim();
+          const dept = (emp.department || "").trim();
 
-    renderEmployeeList(allEmployees);
-    checkAutoLogin(); 
-    
-    if (loadingView.style.display !== 'none') {
-         // checkAutoLogin will handle view change if logged in
-         // If not, we stay at employeeListView
-         if (!localStorage.getItem("savedEmployeeId")) {
-             changeView("employeeListView");
-         }
-    }
-  }, (error) => {
+          const isGroupMatch = group === "IT Support" || group === "DRB";
+          return isGroupMatch;
+        });
+
+      renderEmployeeList(allEmployees);
+      checkAutoLogin();
+
+      if (loadingView.style.display !== "none") {
+        // checkAutoLogin will handle view change if logged in
+        // If not, we stay at employeeListView
+        if (!localStorage.getItem("savedEmployeeId")) {
+          changeView("employeeListView");
+        }
+      }
+    },
+    (error) => {
       console.error(error);
       showMessage("Error", "បរាជ័យក្នុងការទាញយកទិន្នន័យពី Database");
       changeView("employeeListView");
-  });
+    }
+  );
 }
 
 // ============================================
@@ -1219,53 +1408,78 @@ async function initializeAppFirebase() {
   try {
     const attendanceApp = initializeApp(firebaseConfigAttendance);
     dbAttendance = getFirestore(attendanceApp);
-    authAttendance = getAuth(attendanceApp); 
+    authAttendance = getAuth(attendanceApp);
     dbShift = getDatabase(attendanceApp);
     sessionCollectionRef = collection(dbAttendance, "active_sessions");
 
     const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
-    dbLeave = getFirestore(leaveApp);
+    dbLeave = getFirestore(leaveApp); // ✅ Initialize Employee List Database
 
-    // ✅ Initialize Employee List Database
-    const employeeListApp = initializeApp(firebaseConfigEmployeeList, "employeeListApp");
+    const employeeListApp = initializeApp(
+      firebaseConfigEmployeeList,
+      "employeeListApp"
+    );
     dbEmployeeList = getDatabase(employeeListApp);
 
     setLogLevel("silent");
 
-    setupAuthListener();
-    // ✅ ហៅមុខងារថ្មី (Call the new function)
+    setupAuthListener(); // ✅ ហៅមុខងារថ្មី (Call the new function)
     fetchEmployeesFromRTDB();
-
   } catch (error) {
     showMessage("Error", error.message, true);
   }
 }
 
 // Event Listeners
-if(searchInput) {
-    searchInput.addEventListener("input", (e) => {
-        const term = e.target.value.toLowerCase();
-        const filtered = allEmployees.filter(e => e.name.toLowerCase().includes(term) || e.id.includes(term));
-        renderEmployeeList(filtered);
-    });
-    searchInput.addEventListener("focus", () => {
-        if(employeeListHeader) employeeListHeader.style.display = "none";
-        if(employeeListContent) employeeListContent.style.paddingTop = "1rem";
-        renderEmployeeList(allEmployees);
-    });
-    searchInput.addEventListener("blur", () => {
-        setTimeout(() => {
-            if(employeeListHeader) employeeListHeader.style.display = "flex";
-            if(employeeListContent) employeeListContent.style.paddingTop = "";
-            if(employeeListContainer) employeeListContainer.classList.add("hidden");
-        }, 200);
-    });
+if (searchInput) {
+  searchInput.addEventListener("input", (e) => {
+    const term = e.target.value.toLowerCase();
+    const filtered = allEmployees.filter(
+      (e) => e.name.toLowerCase().includes(term) || e.id.includes(term)
+    );
+    renderEmployeeList(filtered);
+  });
+  searchInput.addEventListener("focus", () => {
+    if (employeeListHeader) employeeListHeader.style.display = "none";
+    if (employeeListContent) employeeListContent.style.paddingTop = "1rem";
+    renderEmployeeList(allEmployees);
+  });
+  searchInput.addEventListener("blur", () => {
+    setTimeout(() => {
+      if (employeeListHeader) employeeListHeader.style.display = "flex";
+      if (employeeListContent) employeeListContent.style.paddingTop = "";
+      if (employeeListContainer) employeeListContainer.classList.add("hidden");
+    }, 200);
+  });
 }
 
-if(logoutButton) logoutButton.addEventListener("click", () => showConfirmation("Log Out", "ចាកចេញមែនទេ?", "Yes", () => { logout(); hideMessage(); }));
-if(exitAppButton) exitAppButton.addEventListener("click", () => showConfirmation("Exit", "បិទកម្មវិធី?", "Yes", () => { window.close(); hideMessage(); }));
-if(cameraCloseButton) cameraCloseButton.addEventListener("click", hideCameraModal);
-if(navHomeButton) navHomeButton.addEventListener("click", () => { changeView("homeView"); navHomeButton.classList.add("active-nav"); navHistoryButton.classList.remove("active-nav"); });
-if(navHistoryButton) navHistoryButton.addEventListener("click", () => { changeView("historyView"); navHistoryButton.classList.add("active-nav"); navHomeButton.classList.remove("active-nav"); });
+if (logoutButton)
+  logoutButton.addEventListener("click", () =>
+    showConfirmation("Log Out", "ចាកចេញមែនទេ?", "Yes", () => {
+      logout();
+      hideMessage();
+    })
+  );
+if (exitAppButton)
+  exitAppButton.addEventListener("click", () =>
+    showConfirmation("Exit", "បិទកម្មវិធី?", "Yes", () => {
+      window.close();
+      hideMessage();
+    })
+  );
+if (cameraCloseButton)
+  cameraCloseButton.addEventListener("click", hideCameraModal);
+if (navHomeButton)
+  navHomeButton.addEventListener("click", () => {
+    changeView("homeView");
+    navHomeButton.classList.add("active-nav");
+    navHistoryButton.classList.remove("active-nav");
+  });
+if (navHistoryButton)
+  navHistoryButton.addEventListener("click", () => {
+    changeView("historyView");
+    navHistoryButton.classList.add("active-nav");
+    navHomeButton.classList.remove("active-nav");
+  });
 
 document.addEventListener("DOMContentLoaded", initializeAppFirebase);
