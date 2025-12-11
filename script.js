@@ -1172,19 +1172,14 @@ function fetchEmployeesFromRTDB() {
             shiftSun: schedule["អាទិត្យ"] || null,
         };
     }).filter(emp => {
-        // Filter condition:
-        // Group: "IT Support" OR "DRB"
-        // AND
+       
         // Department: "training_ជំនាន់២"
         const group = (emp.group || "").trim();
         const dept = (emp.department || "").trim();
         
-        //const isGroupMatch = group === "IT Support" || group === "DRB";
-        const isDeptMatch = dept === "Training_ជំនាន់២";
-        
-        // Use AND (&&) to include employees matching BOTH criteria
-        //return isGroupMatch && isDeptMatch;
-        return isDeptMatch;
+        const isGroupMatch = group === "IT Support" || group === "DRB";
+        return isGroupMatch;
+      
     });
 
     renderEmployeeList(allEmployees);
