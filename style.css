@@ -1,7 +1,7 @@
 /* =========================================
    1. BASE STYLES & FONTS
    ========================================= */
-@import url('https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@300;400;500;600;700&display=swap");
 
 body {
   font-family: "Kantumruy Pro", sans-serif;
@@ -52,7 +52,7 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background-color: #F8FAFC;
+  background-color: #f8fafc;
 }
 
 @keyframes slideInUp {
@@ -69,18 +69,19 @@ body {
 /* =========================================
    4. INTERACTIVE ANIMATIONS (BUTTONS & CARDS)
    ========================================= */
-button, 
-.nav-button, 
-.cursor-pointer, 
+button,
+.nav-button,
+.cursor-pointer,
 .modal-btn,
 .card-hover-effect {
-  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s, background-color 0.2s, box-shadow 0.2s;
+  transition: transform 0.1s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.2s,
+    background-color 0.2s, box-shadow 0.2s;
   cursor: pointer;
 }
 
 /* ពេលចុច (Active) ឱ្យរួមតូចបន្តិច */
-button:active, 
-.nav-button:active, 
+button:active,
+.nav-button:active,
 .cursor-pointer:active,
 .modal-btn:active,
 .card-hover-effect:active {
@@ -127,8 +128,15 @@ button:active,
 
 /* --- C. Icons Breathing (សម្រាប់ Status) --- */
 @keyframes breathe {
-  0%, 100% { transform: scale(1); opacity: 1; }
-  50% { transform: scale(1.12); opacity: 0.8; }
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.12);
+    opacity: 0.8;
+  }
 }
 
 .animate-breathe {
@@ -137,10 +145,20 @@ button:active,
 
 /* --- D. Scanner Line --- */
 @keyframes scan {
-  0% { top: 5%; opacity: 0; }
-  15% { opacity: 1; }
-  85% { opacity: 1; }
-  100% { top: 95%; opacity: 0; }
+  0% {
+    top: 5%;
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    top: 95%;
+    opacity: 0;
+  }
 }
 
 .animate-scan {
@@ -151,9 +169,15 @@ button:active,
 
 /* --- E. Pulse (សម្រាប់ប៊ូតុងធំ) --- */
 @keyframes pulse-soft {
-  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4); }
-  70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
 }
 
 .btn-pulse {
@@ -162,7 +186,9 @@ button:active,
 
 /* --- F. Loader Spinner --- */
 @keyframes spin {
-  100% { transform: rotate(360deg); }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .loader {
@@ -171,7 +197,7 @@ button:active,
 }
 
 /* =========================================
-   6. MODAL SYSTEM (BEAUTIFUL DESIGN)
+   6. MODAL SYSTEM (UPDATED FIX)
    ========================================= */
 .modal {
   transition: opacity 0.3s ease, backdrop-filter 0.3s ease;
@@ -204,8 +230,14 @@ button:active,
 }
 
 @keyframes popInSpring {
-  0% { opacity: 0; transform: scale(0.8) translateY(10px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
 }
 
 /* រង្វង់ Icon ក្នុង Modal */
@@ -238,25 +270,40 @@ button:active,
   font-weight: 500;
 }
 
-/* ប៊ូតុងក្នុង Modal */
+/* --- UPDATED BUTTON STYLES --- */
 .modal-btn {
   width: 100%;
-  padding: 14px;
-  border-radius: 18px;
+  height: 50px; /* កម្ពស់ថេរ */
+  border-radius: 16px;
   font-weight: 700;
-  font-size: 1rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  font-size: 0.95rem;
+  display: flex; /* តម្រឹមអក្សរនៅកណ្តាល */
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  outline: none;
 }
 
-.modal-btn-primary {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
-  color: white;
-  box-shadow: 0 8px 20px -4px rgba(37, 99, 235, 0.4);
-}
-
+/* ប៊ូតុង Cancel (ពណ៌ប្រផេះ) */
 .modal-btn-secondary {
   background-color: #f1f5f9;
   color: #64748b;
+  box-shadow: none;
+}
+
+/* ប៊ូតុង OK/Yes (ពណ៌ខៀវ) */
+.modal-btn-primary {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+/* ប៊ូតុង Danger (ពណ៌ក្រហម - សម្រាប់ Logout) */
+.modal-btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+  color: white;
+  box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
 }
 
 /* =========================================
@@ -274,7 +321,7 @@ button:active,
 }
 
 .nav-button.active-nav::after {
-  content: '';
+  content: "";
   position: absolute;
   bottom: 0;
   left: 50%;
@@ -284,4 +331,19 @@ button:active,
   background-color: #2563eb;
   border-radius: 50%;
   margin-bottom: 6px;
+}
+
+/* =========================================
+   8. IMAGE SAFEGUARDS (ការពាររូបភាពបែក)
+   ========================================= */
+/* ជួសជុលបញ្ហារូបភាពក្នុងបញ្ជីធំពេក */
+#employeeListContainer img,
+#employeeListContent img {
+  max-width: 48px !important;
+  max-height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
 }
