@@ -23,20 +23,6 @@ import {
   onValue,
   get,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
-// 🔥🔥🔥 ដាក់កូដដែលសួរនោះនៅត្រង់នេះ (បន្ទាប់ពី Import ភ្លាម) 🔥🔥🔥
-const userAgent = navigator.userAgent || navigator.vendor || window.opera;
-const isTelegram = /Telegram/i.test(userAgent);
-
-if (isTelegram) {
-    const warningDiv = document.createElement("div");
-    warningDiv.className = "fixed top-0 left-0 w-full bg-yellow-500 text-white text-xs p-2 text-center z-[100]";
-    warningDiv.innerHTML = `
-        <i class="ph-bold ph-warning"></i> 
-        សម្រាប់ដំណើរការល្អបំផុត សូមចុច <b>(...)</b> ខាងលើ រួចជ្រើសរើស <b>Open in Chrome/Safari</b>
-    `;
-    document.body.appendChild(warningDiv);
-}
-// 🔥🔥🔥 ចប់កូដ 🔥🔥🔥
 
 // ============================================
 // 2. GLOBAL VARIABLES & CONFIG
