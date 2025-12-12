@@ -1,4 +1,4 @@
-// ==========================================
+ឮ// ==========================================
 // 1. IMPORTS & CONFIGURATION
 // ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
@@ -27,7 +27,7 @@ let currentMonthRecords = [];
 let attendanceRecords = [];
 let leaveRecords = [];
 let currentUser = null;
-let pendingUser = null; // សម្រាប់ទុកអ្នកដែលបានជ្រើសរើស តែមិនទាន់ស្កេនមុខ
+let pendingUser = null; // *** សម្រាប់ទុកអ្នកដែលជ្រើសរើស តែមិនទាន់ស្កេនមុខ
 let currentUserShift = null;
 let attendanceCollectionRef = null;
 let attendanceListener = null;
@@ -268,7 +268,6 @@ async function fetchAllLeaveForMonth(employeeId) {
   const endMonthDate = new Date(endOfMonth + "T23:59:59");
   let allLeaveRecords = [];
 
-  // 1. Fetch from 'leave_requests'
   try {
     const qLeave = query(
       collection(dbLeave, "/artifacts/default-app-id/public/data/leave_requests"),
@@ -294,7 +293,6 @@ async function fetchAllLeaveForMonth(employeeId) {
 
           if (currentLeaveDate >= startMonthDate && currentLeaveDate <= endMonthDate) {
             let leaveLabel = `ច្បាប់ ${durationStr}`;
-            // ករណីកន្លះថ្ងៃនៅថ្ងៃចុងក្រោយ
             const isHalfDay = (durationNum % 1 !== 0); 
             if (isHalfDay && i === daysToSpan - 1) {
                allLeaveRecords.push({
@@ -314,7 +312,6 @@ async function fetchAllLeaveForMonth(employeeId) {
           }
         }
       } else {
-        // Single Day cases
         if (startDate >= startMonthDate && startDate <= endMonthDate) {
            const dateStr = getTodayDateString(startDate);
            const formatted = formatDate(startDate);
@@ -330,7 +327,6 @@ async function fetchAllLeaveForMonth(employeeId) {
     });
   } catch (e) { console.error("Leave Error:", e); }
 
-  // 2. Fetch from 'out_requests'
   try {
     const qOut = query(
       collection(dbLeave, "/artifacts/default-app-id/public/data/out_requests"),
@@ -365,10 +361,8 @@ async function fetchAllLeaveForMonth(employeeId) {
 
 async function mergeAndRenderHistory() {
   const mergedMap = new Map();
-  // 1. Add Attendance
   for (const record of attendanceRecords) mergedMap.set(record.date, { ...record });
   
-  // 2. Add Leave (Overwrite or Fill)
   for (const leave of leaveRecords) {
     const existing = mergedMap.get(leave.date);
     if (existing) {
@@ -427,7 +421,6 @@ async function updateButtonState() {
     }
   }
 
-  // Shift Check (Visual Only)
   const canCheckIn = checkShiftTime(currentUserShift, "checkIn");
   if (!todayData || !todayData.checkIn) {
       if (!canCheckIn) {
@@ -447,7 +440,6 @@ async function updateButtonState() {
 
 async function loadAIModels() {
   const MODEL_URL = "./models";
-  loadingText.textContent = "កំពុងទាញយក AI Models...";
   try {
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -485,7 +477,7 @@ async function startFaceScan(action) {
     return;
   }
 
-  // Login Flow
+  // Login Flow: Prepare Matcher here if not ready
   if (action === 'login') {
       if (!pendingUser) return;
       if (!pendingUser.photoUrl || pendingUser.photoUrl.includes("placehold.co")) {
@@ -655,14 +647,14 @@ async function initializeAppFirebase() {
 
     await setupAuthListener();
     
-    // ** IMPORTANT: Wait for both AI and Data BEFORE showing list **
+    // ** KEY FIX: Wait for everything before showing UI **
     loadingText.textContent = "កំពុងទាញយក AI & ទិន្នន័យ...";
     await Promise.all([
         loadAIModels(),
         fetchGoogleSheetData()
     ]);
 
-    // Check auto-login OR show list
+    // Check auto-login
     const savedId = localStorage.getItem("savedEmployeeId");
     if (savedId && allEmployees.length > 0) {
       const user = allEmployees.find(e => e.id === savedId);
@@ -735,7 +727,7 @@ async function fetchGoogleSheetData() {
 function onUserClick(employee) {
     // 1. Set pending user
     pendingUser = employee;
-    // 2. Open Camera Immediately
+    // 2. Open Camera Immediately for Login
     startFaceScan('login');
 }
 
@@ -774,7 +766,7 @@ async function performLogin(skipSessionLock = false) {
   
   changeView("homeView");
   
-  // Set matcher if missing (for auto-login case)
+  // Reuse matcher if already set
   if (!currentUserFaceMatcher && employee.photoUrl) {
       prepareFaceMatcher(employee.photoUrl); 
   }
@@ -787,7 +779,7 @@ async function performLogin(skipSessionLock = false) {
 }
 
 // ==========================================
-// 8. UI RENDER FUNCTIONS
+// 8. UI RENDER FUNCTIONS (FIXED)
 // ==========================================
 
 function renderEmployeeList(employees) {
@@ -802,6 +794,7 @@ function renderEmployeeList(employees) {
 
   employees.forEach((emp) => {
     const card = document.createElement("div");
+    // Compact List Layout (No big cards)
     card.className = "bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-3 cursor-pointer hover:bg-blue-50 active:scale-95 transition-all";
     card.innerHTML = `
       <img src="${emp.photoUrl || "https://placehold.co/48x48/e2e8f0/64748b?text=Img"}" 
@@ -841,6 +834,7 @@ function renderTodayHistory() {
   
   const formatVal = (val, isCheckIn) => {
       if(!val) return isCheckIn ? `<span class="text-gray-400 text-sm">---</span>` : `<span class="text-gray-400 text-sm italic">មិនទាន់ចេញ</span>`;
+      // Check for leave or regular time
       if(val.includes("ច្បាប់")) return `<span class="font-bold text-blue-600 text-xs whitespace-nowrap">${val.replace("ច្បាប់", "")}</span>`;
       return `<span class="font-bold ${isCheckIn ? 'text-green-700' : 'text-red-700'} whitespace-nowrap">${val}</span>`;
   };
@@ -878,13 +872,21 @@ function renderMonthlyHistory() {
   currentMonthRecords.forEach(record => {
     const isToday = record.date === getTodayDateString();
     
-    const checkInDisplay = record.checkIn 
-        ? `<span class="font-bold ${record.checkIn.includes('ច្បាប់') ? 'text-blue-600' : 'text-green-700'} whitespace-nowrap text-sm">${record.checkIn}</span>`
-        : `<span class="text-red-500 text-xs font-medium">អវត្តមាន</span>`;
-        
-    const checkOutDisplay = record.checkOut
-        ? `<span class="font-bold ${record.checkOut.includes('ច្បាប់') ? 'text-blue-600' : 'text-red-700'} whitespace-nowrap text-sm">${record.checkOut}</span>`
-        : `<span class="text-gray-400 text-xs">---</span>`;
+    // Check-in Display
+    let checkInDisplay;
+    if(record.checkIn) {
+       checkInDisplay = `<span class="font-bold ${record.checkIn.includes('ច្បាប់') ? 'text-blue-600' : 'text-green-700'} whitespace-nowrap text-sm">${record.checkIn}</span>`;
+    } else {
+       checkInDisplay = `<span class="text-red-500 text-xs font-medium">អវត្តមាន</span>`;
+    }
+
+    // Check-out Display
+    let checkOutDisplay;
+    if(record.checkOut) {
+       checkOutDisplay = `<span class="font-bold ${record.checkOut.includes('ច្បាប់') ? 'text-blue-600' : 'text-red-700'} whitespace-nowrap text-sm">${record.checkOut}</span>`;
+    } else {
+       checkOutDisplay = `<span class="text-gray-400 text-xs">---</span>`;
+    }
 
     const card = document.createElement("div");
     const borderColor = isToday ? "border-l-4 border-l-blue-500" : "border-l-4 border-l-gray-300";
@@ -937,7 +939,7 @@ function logout() {
 // 9. EVENT LISTENERS
 // ==========================================
 
-// Search Input
+// Search Input (Fix: No Jumping)
 searchInput.addEventListener("input", (e) => {
   const term = e.target.value.toLowerCase();
   const filtered = allEmployees.filter(e => 
