@@ -755,6 +755,70 @@ async function prepareFaceMatcher(imgElement) {
   }
 }
 
+async function selectUser(employee) {
+  // 1. ការពារការចុចលើទិន្នន័យទទេ
+  if (!employee) return;
+
+  // 2. ពិនិត្យមើលថា AI Models ដំណើរការហើយឬនៅ?
+  if (!modelsLoaded) {
+    alert("ប្រព័ន្ធ AI កំពុងដំណើរការ... សូមរង់ចាំបន្តិច រួចចុចម្តងទៀត!");
+    return;
+  }
+
+  // បង្ហាញផ្ទាំង Loading
+  changeView("loadingView");
+  if (typeof cameraLoadingText !== "undefined") {
+    cameraLoadingText.textContent = "កំពុងរៀបចំប្រព័ន្ធសុវត្ថិភាព...";
+  } else {
+    // បើរកមិនឃើញ Element, ព្យាយាមរកតាម ID
+    const loadingTxt = document.getElementById("loadingText");
+    if (loadingTxt) loadingTxt.textContent = "កំពុងវិភាគទិន្នន័យមុខ...";
+  }
+
+  currentUser = employee;
+  
+  // សម្គាល់៖ យើងមិន Save ID ទុកទេ ទាល់តែ Login ជាប់ (តាមការកែសម្រួលមុន)
+
+  // 3. ចាប់ផ្តើមដំណើរការរូបភាព Profile
+  const tempImg = new Image();
+  tempImg.crossOrigin = "Anonymous"; // សំខាន់សម្រាប់ CORS
+  
+  // បើរូបភាពមិនមាន ឬខូច ប្រើរូប Placeholder
+  const imageUrl = employee.photoUrl || PLACEHOLDER_IMG;
+  tempImg.src = imageUrl;
+
+  tempImg.onload = async () => {
+    try {
+      // វិភាគរកមុខនៅក្នុងរូប Profile
+      await prepareFaceMatcher(tempImg);
+
+      // 4. លក្ខខណ្ឌបើកកាមេរ៉ា
+      if (currentUserFaceMatcher) {
+        // ✅ បើរូប Profile មានមុខច្បាស់ -> បើកកាមេរ៉ាស្កេន
+        console.log("Profile face detected. Starting camera...");
+        startFaceScan("login");
+      } else {
+        // ❌ បើរូប Profile រកមុខមិនឃើញ -> ជូនដំណឹង និងមិនឱ្យចូល (ឬឱ្យចូលតាមការសម្រេចចិត្ត)
+        console.warn("No face detected in profile image.");
+        alert("រូបថត Profile របស់អ្នកមើលមិនច្បាស់ ឬមិនមានមុខ! ប្រព័ន្ធមិនអាចធ្វើការផ្ទៀងផ្ទាត់បានទេ។");
+        
+        // ជម្រើស៖ បើចង់ឱ្យចូលបានដោយមិនបាច់ស្កេន (សម្រាប់តេស្ត) អាចបើកបន្ទាត់ខាងក្រោម៖
+        // finalizeLogin(employee); 
+        
+        changeView("employeeListView");
+      }
+    } catch (error) {
+      console.error("Error processing profile image:", error);
+      alert("មានបញ្ហាក្នុងការវិភាគរូបភាព៖ " + error.message);
+      changeView("employeeListView");
+    }
+  };
+
+  tempImg.onerror = () => {
+    alert("មិនអាចទាញយករូបភាព Profile បានទេ។ សូមពិនិត្យមើលអ៊ីនធឺណិត ឬតំណភ្ជាប់រូបភាព។");
+    changeView("employeeListView");
+  };
+}
 async function startFaceScan(action) {
   currentScanAction = action;
   livenessStep = 0; // ✅ Reset Step
