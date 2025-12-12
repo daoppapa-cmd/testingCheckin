@@ -1,6 +1,6 @@
-// ============================================
-// 1. IMPORTS & DEPENDENCIES
-// ============================================
+// ==========================================
+// 1. IMPORTS & CONFIGURATION
+// ==========================================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
 import {
   getAuth,
@@ -11,94 +11,63 @@ import {
   getFirestore,
   doc,
   setDoc,
+  updateDoc,
   collection,
   onSnapshot,
   setLogLevel,
   query,
   where,
+  getDocs,
 } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-import {
-  getDatabase,
-  ref,
-  onValue,
-  get,
-} from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
 
-// ============================================
-// 2. GLOBAL VARIABLES & CONFIG
-// ============================================
-let dbAttendance, dbLeave, dbEmployeeList, dbShift, authAttendance;
+// --- Global Variables ---
+let dbAttendance, dbLeave, authAttendance;
 let allEmployees = [];
-let currentMonthRecords = [];
+let currentMonthRecords = []; 
 let attendanceRecords = [];
 let leaveRecords = [];
 let currentUser = null;
+let pendingUser = null; // សម្រាប់ទុកអ្នកដែលបានជ្រើសរើស តែមិនទាន់ស្កេនមុខ
 let currentUserShift = null;
 let attendanceCollectionRef = null;
 let attendanceListener = null;
 let leaveCollectionListener = null;
 let outCollectionListener = null;
+let currentConfirmCallback = null;
+
+// --- Session & Device Lock ---
 let sessionCollectionRef = null;
 let sessionListener = null;
 let currentDeviceId = null;
+
+// --- AI & Camera ---
 let modelsLoaded = false;
 let currentUserFaceMatcher = null;
-let currentScanAction = null;
+let currentScanAction = null; // 'login', 'checkIn', 'checkOut'
 let videoStream = null;
-let isScanning = false;
-let profileFaceError = false;
+const FACE_MATCH_THRESHOLD = 0.5;
 
-// 🔄 Liveness Check Variables
-let livenessStep = 0; // 0: Match, 1: Smile, 2: Turn Left, 3: Turn Right
-
-// ✅ Setting Thresholds
-const FACE_MATCH_THRESHOLD = 0.4;
-const SMILE_THRESHOLD = 0.05; // កម្រិតញញឹម (Low for easier detection)
-const HEAD_TURN_LEFT_THRESHOLD = 0.6; // ងាកឆ្វេង (Ratio > 0.6)
-const HEAD_TURN_RIGHT_THRESHOLD = 0.4; // ងាកស្តាំ (Ratio < 0.4)
-
-const PLACEHOLDER_IMG = "https://placehold.co/80x80/e2e8f0/64748b?text=No+Img";
-
-const shiftSettings = {
-  ពេញម៉ោង: {
-    startCheckIn: "07:00 AM",
-    endCheckIn: "10:15 AM",
-    startCheckOut: "04:30 PM",
-    endCheckOut: "11:50 PM",
-  },
-  ពេលយប់: {
-    startCheckIn: "05:00 PM",
-    endCheckIn: "07:50 PM",
-    startCheckOut: "08:55 PM",
-    endCheckOut: "11:50 PM",
-  },
-  មួយព្រឹក: {
-    startCheckIn: "07:00 AM",
-    endCheckIn: "10:15 AM",
-    startCheckOut: "11:30 AM",
-    endCheckOut: "11:50 PM",
-  },
-  មួយរសៀល: {
-    startCheckIn: "12:00 PM",
-    endCheckIn: "02:30 PM",
-    startCheckOut: "05:30 PM",
-    endCheckOut: "11:50 PM",
-  },
+// --- Maps & Configs ---
+const durationMap = {
+  "មួយថ្ងៃ": 1, "មួយព្រឹក": 0.5, "មួយរសៀល": 0.5,
+  "មួយថ្ងៃកន្លះ": 1.5, "ពីរថ្ងៃ": 2, "ពីរថ្ងៃកន្លះ": 2.5, 
+  "បីថ្ងៃ": 3, "បីថ្ងៃកន្លះ": 3.5, "បួនថ្ងៃ": 4, "បួនថ្ងៃកន្លះ": 4.5, 
+  "ប្រាំថ្ងៃ": 5, "ប្រាំថ្ងៃកន្លះ": 5.5, "ប្រាំមួយថ្ងៃ": 6, 
+  "ប្រាំមួយថ្ងៃកន្លះ": 6.5, "ប្រាំពីរថ្ងៃ": 7,
 };
 
-const allowedAreaCoords = [
-  [11.415206789703271, 104.7642005060435],
-  [11.41524294053174, 104.76409925265823],
-  [11.413750665249953, 104.7633762203053],
-  [11.41370399757057, 104.7634714387206],
-];
-
-// --- Firebase Configurations ---
+const SHEET_ID = "1eRyPoifzyvB4oBmruNyXcoKMKPRqjk6xDD6-bPNW6pc";
+const SHEET_NAME = "DIList";
+const GVIZ_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${SHEET_NAME}&range=E9:AJ`;
+const COL_INDEX = {
+  ID: 0, GROUP: 2, NAME: 7, GENDER: 9, GRADE: 13, DEPT: 14,
+  SHIFT_MON: 24, SHIFT_TUE: 25, SHIFT_WED: 26, SHIFT_THU: 27,
+  SHIFT_FRI: 28, SHIFT_SAT: 29, SHIFT_SUN: 30, PHOTO: 31,
+};
 
 const firebaseConfigAttendance = {
   apiKey: "AIzaSyCgc3fq9mDHMCjTRRHD3BPBL31JkKZgXFc",
   authDomain: "checkme-10e18.firebaseapp.com",
-  databaseURL: "https://checkme-10e18-default-rtdb.firebaseio.com",
   projectId: "checkme-10e18",
   storageBucket: "checkme-10e18.firebasestorage.app",
   messagingSenderId: "1030447497157",
@@ -116,172 +85,104 @@ const firebaseConfigLeave = {
   measurementId: "G-KDPHXZ7H4B",
 };
 
-const firebaseConfigEmployeeList = {
-  apiKey: "AIzaSyAc2g-t9A7du3K_nI2fJnw_OGxhmLfpP6s",
-  authDomain: "dilistname.firebaseapp.com",
-  databaseURL: "https://dilistname-default-rtdb.firebaseio.com",
-  projectId: "dilistname",
-  storageBucket: "dilistname.firebasestorage.app",
-  messagingSenderId: "897983357871",
-  appId: "1:897983357871:web:42a046bc9fb3e0543dc55a",
-  measurementId: "G-NQ798D9J6K",
-};
+// --- DOM Elements ---
+const loadingView = document.getElementById("loadingView");
+const loadingText = document.getElementById("loadingText");
+const employeeListView = document.getElementById("employeeListView");
+const homeView = document.getElementById("homeView");
+const historyView = document.getElementById("historyView");
+const footerNav = document.getElementById("footerNav");
 
-// ============================================
-// 3. DOM ELEMENTS
-// ============================================
-const $ = (id) => document.getElementById(id);
+const navHomeButton = document.getElementById("navHomeButton");
+const navHistoryButton = document.getElementById("navHistoryButton");
+const searchInput = document.getElementById("searchInput");
+const employeeListContainer = document.getElementById("employeeListContainer");
 
-const loadingView = $("loadingView");
-const employeeListView = $("employeeListView");
-const homeView = $("homeView");
-const historyView = $("historyView");
-const footerNav = $("footerNav");
-const navHomeButton = $("navHomeButton");
-const navHistoryButton = $("navHistoryButton");
-const searchInput = $("searchInput");
-const employeeListContainer = $("employeeListContainer");
-const welcomeMessage = $("welcomeMessage");
-const logoutButton = $("logoutButton");
-const exitAppButton = $("exitAppButton");
-const profileImage = $("profileImage");
-const profileName = $("profileName");
-const profileId = $("profileId");
-const profileDepartment = $("profileDepartment");
-const profileGroup = $("profileGroup");
-const profileShift = $("profileShift");
+const welcomeMessage = document.getElementById("welcomeMessage");
+const logoutButton = document.getElementById("logoutButton");
+const exitAppButton = document.getElementById("exitAppButton");
 
-const actionButtonContainer = $("actionButtonContainer");
-const actionBtnBg = $("actionBtnBg");
-const actionBtnTitle = $("actionBtnTitle");
-const actionBtnSubtitle = $("actionBtnSubtitle");
-const actionBtnIcon = $("actionBtnIcon");
-const statusMessageContainer = $("statusMessageContainer");
-const statusTitle = $("statusTitle");
-const statusDesc = $("statusDesc");
-const statusIcon = $("statusIcon");
-const statusIconBg = $("statusIconBg");
-const noShiftContainer = $("noShiftContainer");
-const todayActivitySection = $("todayActivitySection");
-const shiftStatusIndicator = $("shiftStatusIndicator");
+const profileImage = document.getElementById("profileImage");
+const profileName = document.getElementById("profileName");
+const profileId = document.getElementById("profileId");
+const profileDepartment = document.getElementById("profileDepartment");
+const profileGroup = document.getElementById("profileGroup");
+const profileGrade = document.getElementById("profileGrade");
+const profileShift = document.getElementById("profileShift");
 
-const historyContainer = $("historyContainer");
-const monthlyHistoryContainer = $("monthlyHistoryContainer");
-const customModal = $("customModal");
-const cameraModal = $("cameraModal");
-const videoElement = $("videoElement");
-const cameraCloseButton = $("cameraCloseButton");
-const cameraLoadingText = $("cameraLoadingText");
-const captureButton = $("captureButton");
-const employeeListHeader = $("employeeListHeader");
-const employeeListContent = $("employeeListContent");
+const checkInButton = document.getElementById("checkInButton");
+const checkOutButton = document.getElementById("checkOutButton");
+const attendanceStatus = document.getElementById("attendanceStatus");
 
-// ============================================
-// 4. HELPER FUNCTIONS
-// ============================================
+const historyContainer = document.getElementById("historyContainer");
+const noHistoryRow = document.getElementById("noHistoryRow");
+const monthlyHistoryContainer = document.getElementById("monthlyHistoryContainer");
+const noMonthlyHistoryRow = document.getElementById("noMonthlyHistoryRow");
+
+const customModal = document.getElementById("customModal");
+const modalTitle = document.getElementById("modalTitle");
+const modalMessage = document.getElementById("modalMessage");
+const modalCancelButton = document.getElementById("modalCancelButton");
+const modalConfirmButton = document.getElementById("modalConfirmButton");
+
+const cameraModal = document.getElementById("cameraModal");
+const videoElement = document.getElementById("videoElement");
+const cameraCanvas = document.getElementById("cameraCanvas");
+const cameraCloseButton = document.getElementById("cameraCloseButton");
+const cameraLoadingText = document.getElementById("cameraLoadingText");
+const cameraHelpText = document.getElementById("cameraHelpText");
+const captureButton = document.getElementById("captureButton");
+
+// ==========================================
+// 2. HELPER FUNCTIONS
+// ==========================================
 
 function changeView(viewId) {
-  [loadingView, employeeListView, homeView, historyView].forEach((v) => {
-    if (v) v.style.display = "none";
-  });
-  const view = $(viewId);
-  if (view) view.style.display = "flex";
-  if (viewId === "homeView" || viewId === "historyView") {
-    if (footerNav) footerNav.style.display = "block";
-  } else {
-    if (footerNav) footerNav.style.display = "none";
+  loadingView.style.display = "none";
+  employeeListView.style.display = "none";
+  homeView.style.display = "none";
+  historyView.style.display = "none";
+  footerNav.style.display = "none";
+
+  if (viewId === "loadingView") loadingView.style.display = "flex";
+  else if (viewId === "employeeListView") employeeListView.style.display = "flex";
+  else if (viewId === "homeView") {
+    homeView.style.display = "flex";
+    footerNav.style.display = "block";
+  } else if (viewId === "historyView") {
+    historyView.style.display = "flex";
+    footerNav.style.display = "block";
   }
 }
 
 function showMessage(title, message, isError = false) {
-  const iconColor = isError ? "text-red-500" : "text-blue-500";
-  const bgColor = isError ? "bg-red-50" : "bg-blue-50";
-  const iconName = isError ? "ph-warning-circle" : "ph-info";
-
-  const modalContent = `
-    <div class="modal-box-design">
-      <div class="status-icon-wrapper ${bgColor} ${iconColor}">
-        <i class="ph-fill ${iconName}"></i>
-      </div>
-      <h3 class="modal-title-text">${title}</h3>
-      <p class="modal-body-text">${message}</p>
-      <button id="modalConfirmButtonAction" class="modal-btn modal-btn-primary">
-        យល់ព្រម
-      </button>
-    </div>
-  `;
-
-  if (customModal) {
-    customModal.innerHTML = modalContent;
-    const btn = $("modalConfirmButtonAction");
-    if (btn) btn.onclick = hideMessage;
-    customModal.classList.remove("modal-hidden");
-    customModal.classList.add("modal-visible");
-  }
+  modalTitle.textContent = title;
+  modalMessage.textContent = message;
+  modalTitle.classList.toggle("text-red-600", isError);
+  modalTitle.classList.toggle("text-gray-800", !isError);
+  modalConfirmButton.textContent = "យល់ព្រម";
+  modalCancelButton.style.display = "none";
+  currentConfirmCallback = null;
+  customModal.classList.remove("modal-hidden");
+  customModal.classList.add("modal-visible");
 }
 
 function showConfirmation(title, message, confirmText, onConfirm) {
-  // ពិនិត្យមើលថា តើជាការចាកចេញ (Log Out/Exit) ឬអត់ ដើម្បីប្តូរពណ៌ប៊ូតុង
-  const isDangerAction =
-    title === "Log Out" || title === "Exit" || title === "ចាកចេញ";
-  const confirmBtnClass = isDangerAction
-    ? "modal-btn-danger"
-    : "modal-btn-primary";
-
-  // កំណត់ Icon តាមប្រភេទសកម្មភាព
-  let iconHtml = "";
-  if (isDangerAction) {
-    iconHtml = `
-      <div class="status-icon-wrapper bg-red-50 text-red-500">
-        <i class="ph-duotone ph-sign-out"></i>
-      </div>`;
-  } else {
-    iconHtml = `
-      <div class="status-icon-wrapper bg-orange-50 text-orange-500">
-        <i class="ph-fill ph-question"></i>
-      </div>`;
-  }
-
-  const modalContent = `
-    <div class="modal-box-design">
-      ${iconHtml}
-      <h3 class="modal-title-text">${title}</h3>
-      <p class="modal-body-text">${message}</p>
-      <div class="grid grid-cols-2 gap-3 mt-4">
-        <button id="modalCancelBtn" class="modal-btn modal-btn-secondary">
-          បោះបង់
-        </button>
-        <button id="modalOkBtn" class="modal-btn ${confirmBtnClass}">
-          ${confirmText}
-        </button>
-      </div>
-    </div>
-  `;
-
-  if (customModal) {
-    customModal.innerHTML = modalContent;
-
-    // Setup Event Listeners
-    const cancelBtn = $("modalCancelBtn");
-    const okBtn = $("modalOkBtn");
-
-    if (cancelBtn) cancelBtn.onclick = hideMessage;
-    if (okBtn)
-      okBtn.onclick = () => {
-        hideMessage(); // បិទ Modal សិន ចាំធ្វើការ
-        setTimeout(onConfirm, 200); // ទុកពេលឱ្យ Animation បិទចប់បន្តិច
-      };
-
-    customModal.classList.remove("modal-hidden");
-    customModal.classList.add("modal-visible");
-  }
+  modalTitle.textContent = title;
+  modalMessage.textContent = message;
+  modalTitle.classList.remove("text-red-600");
+  modalTitle.classList.add("text-gray-800");
+  modalConfirmButton.textContent = confirmText;
+  modalCancelButton.style.display = "block";
+  currentConfirmCallback = onConfirm;
+  customModal.classList.remove("modal-hidden");
+  customModal.classList.add("modal-visible");
 }
 
 function hideMessage() {
-  if (customModal) {
-    customModal.classList.add("modal-hidden");
-    customModal.classList.remove("modal-visible");
-  }
+  customModal.classList.add("modal-hidden");
+  customModal.classList.remove("modal-visible");
+  currentConfirmCallback = null;
 }
 
 function getTodayDateString(date = new Date()) {
@@ -291,1258 +192,791 @@ function getTodayDateString(date = new Date()) {
   return `${year}-${month}-${day}`;
 }
 
+function getCurrentMonthRange() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthString = String(now.getMonth() + 1).padStart(2, "0");
+  const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
+  return {
+    startOfMonth: `${year}-${monthString}-01`,
+    endOfMonth: `${year}-${monthString}-${String(lastDay).padStart(2, "0")}`
+  };
+}
+
+const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 function formatDate(date) {
+  if (!date) return "";
   try {
     const day = String(date.getDate()).padStart(2, "0");
-    const month = [
-      "Jan",
-      "Feb",
-      "Mar",
-      "Apr",
-      "May",
-      "Jun",
-      "Jul",
-      "Aug",
-      "Sep",
-      "Oct",
-      "Nov",
-      "Dec",
-    ][date.getMonth()];
+    const month = monthNames[date.getMonth()];
     const year = date.getFullYear();
     return `${day}-${month}-${year}`;
-  } catch (e) {
-    return "";
-  }
+  } catch (e) { return "Invalid Date"; }
 }
 
 function formatTime(date) {
+  if (!date) return null;
   let hours = date.getHours();
   const minutes = String(date.getMinutes()).padStart(2, "0");
   const ampm = hours >= 12 ? "PM" : "AM";
-  hours = hours % 12 || 12;
-  return `${String(hours).padStart(2, "0")}:${minutes} ${ampm}`;
+  hours = hours % 12;
+  hours = hours ? hours : 12;
+  const strHours = String(hours).padStart(2, "0");
+  return `${strHours}:${minutes} ${ampm}`;
 }
 
-function parseTimeStringToDecimal(timeStr) {
-  if (!timeStr || typeof timeStr !== "string") return null;
-  const cleanStr = timeStr.replace(/[^a-zA-Z0-9:]/g, "");
-  const match = cleanStr.match(/(\d+):(\d+)(AM|PM)/i);
-  if (!match) return null;
-
-  let hours = parseInt(match[1], 10);
-  const minutes = parseInt(match[2], 10);
-  const ampm = match[3].toUpperCase();
-  if (ampm === "PM" && hours !== 12) hours += 12;
-  else if (ampm === "AM" && hours === 12) hours = 0;
-  return hours + minutes / 60;
+const monthMap = { Jan: 0, Feb: 1, Mar: 2, Apr: 3, May: 4, Jun: 5, Jul: 6, Aug: 7, Sep: 8, Oct: 9, Nov: 10, Dec: 11 };
+function parseLeaveDate(dateString) {
+  if (!dateString) return null;
+  try {
+    const parts = dateString.split("-");
+    if (parts.length !== 3) return null;
+    const day = parseInt(parts[0], 10);
+    const month = monthMap[parts[1]];
+    const year = parseInt(parts[2], 10);
+    if (isNaN(day) || month === undefined || isNaN(year)) return null;
+    return new Date(year, month, day);
+  } catch (e) { return null; }
 }
 
 function checkShiftTime(shiftType, checkType) {
-  if (!shiftType || shiftType === "N/A" || shiftType === "None") return false;
+  if (!shiftType || shiftType === "N/A") return false;
   if (shiftType === "Uptime") return true;
-
-  const settings = shiftSettings[shiftType];
-  if (!settings) return false;
-
-  let startStr, endStr;
-  if (checkType === "checkIn") {
-    startStr = settings.startCheckIn;
-    endStr = settings.endCheckIn;
-  } else {
-    startStr = settings.startCheckOut;
-    endStr = settings.endCheckOut;
-  }
-
-  if (!startStr || !endStr) return false;
-
-  const minTime = parseTimeStringToDecimal(startStr);
-  const maxTime = parseTimeStringToDecimal(endStr);
-
-  if (minTime === null || maxTime === null) return false;
-
   const now = new Date();
   const currentTime = now.getHours() + now.getMinutes() / 60;
-
-  if (minTime > maxTime) {
-    return currentTime >= minTime || currentTime <= maxTime;
-  } else {
-    return currentTime >= minTime && currentTime <= maxTime;
-  }
+  const shiftRules = {
+    ពេញម៉ោង: { checkIn: [6.83, 10.25], checkOut: [17.5, 22.25] },
+    ពេលយប់: { checkIn: [17.66, 19.25], checkOut: [20.91, 22.83] },
+    មួយព្រឹក: { checkIn: [6.83, 10.25], checkOut: [11.5, 13.25] },
+    មួយរសៀល: { checkIn: [11.83, 14.5], checkOut: [17.5, 22.25] },
+  };
+  const rules = shiftRules[shiftType];
+  if (!rules) return false;
+  const [min, max] = rules[checkType];
+  return currentTime >= min && currentTime <= max;
 }
 
-function getUserLocation() {
-  return new Promise((resolve, reject) => {
-    if (!navigator.geolocation) {
-      reject(new Error("កម្មវិធីមិនគាំទ្រការប្រើប្រាស់ទីតាំងលើឧបករណ៍នេះទេ"));
-      return;
-    }
-    navigator.geolocation.getCurrentPosition(
-      (p) => resolve(p.coords),
-      (error) => {
-        let msg = "សូមបើក Location";
-        switch (error.code) {
-          case error.PERMISSION_DENIED:
-            msg = "សូមបើក Location ក្នុង Setting។";
-            break;
-          case error.POSITION_UNAVAILABLE:
-            msg = "មិនអាចស្វែងរកទីតាំងបានទេ។";
-            break;
-          case error.TIMEOUT:
-            msg = "ការស្វែងរកទីតាំងចំណាយពេលយូរពេក។";
-            break;
-        }
-        reject(new Error(msg));
-      },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+// ==========================================
+// 3. CORE LOGIC (Attendance & Leave)
+// ==========================================
+
+async function fetchAllLeaveForMonth(employeeId) {
+  if (!dbLeave) return [];
+  
+  const { startOfMonth, endOfMonth } = getCurrentMonthRange();
+  const startMonthDate = new Date(startOfMonth + "T00:00:00");
+  const endMonthDate = new Date(endOfMonth + "T23:59:59");
+  let allLeaveRecords = [];
+
+  // 1. Fetch from 'leave_requests'
+  try {
+    const qLeave = query(
+      collection(dbLeave, "/artifacts/default-app-id/public/data/leave_requests"),
+      where("userId", "==", employeeId),
+      where("status", "==", "approved")
     );
-  });
-}
+    const leaveSnapshot = await getDocs(qLeave);
 
-function isInsideArea(lat, lon) {
-  const polygon = allowedAreaCoords;
-  let isInside = false;
-  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
-    const viy = polygon[i][0],
-      vix = polygon[i][1];
-    const vjy = polygon[j][0],
-      vjx = polygon[j][1];
-    if (
-      viy > lat !== vjy > lat &&
-      lon < ((vjx - vix) * (lat - viy)) / (vjy - viy) + vix
-    ) {
-      isInside = !isInside;
-    }
-  }
-  return isInside;
-}
+    leaveSnapshot.forEach((doc) => {
+      const data = doc.data();
+      const startDate = parseLeaveDate(data.startDate);
+      if (!startDate) return;
 
-// ============================================
-// 5. DATA PROCESSING & RENDERING
-// ============================================
+      const durationStr = data.duration;
+      const durationNum = durationMap[durationStr] || parseFloat(durationStr);
+      const isMultiDay = !isNaN(durationNum) && durationNum > 0;
 
-function mergeAttendanceAndLeave(attendanceRecords, leaveRecords) {
-  const mergedMap = new Map();
-  attendanceRecords.forEach((r) => mergedMap.set(r.date, { ...r }));
-  return Array.from(mergedMap.values());
+      if (isMultiDay) {
+        const daysToSpan = Math.ceil(durationNum);
+        for (let i = 0; i < daysToSpan; i++) {
+          const currentLeaveDate = new Date(startDate);
+          currentLeaveDate.setDate(startDate.getDate() + i);
+
+          if (currentLeaveDate >= startMonthDate && currentLeaveDate <= endMonthDate) {
+            let leaveLabel = `ច្បាប់ ${durationStr}`;
+            // ករណីកន្លះថ្ងៃនៅថ្ងៃចុងក្រោយ
+            const isHalfDay = (durationNum % 1 !== 0); 
+            if (isHalfDay && i === daysToSpan - 1) {
+               allLeaveRecords.push({
+                 date: getTodayDateString(currentLeaveDate),
+                 formattedDate: formatDate(currentLeaveDate),
+                 checkIn: `${leaveLabel} (ព្រឹក)`,
+                 checkOut: null 
+               });
+            } else {
+               allLeaveRecords.push({
+                 date: getTodayDateString(currentLeaveDate),
+                 formattedDate: formatDate(currentLeaveDate),
+                 checkIn: leaveLabel,
+                 checkOut: leaveLabel
+               });
+            }
+          }
+        }
+      } else {
+        // Single Day cases
+        if (startDate >= startMonthDate && startDate <= endMonthDate) {
+           const dateStr = getTodayDateString(startDate);
+           const formatted = formatDate(startDate);
+           if (durationStr === "មួយព្រឹក") {
+             allLeaveRecords.push({ date: dateStr, formattedDate: formatted, checkIn: `ច្បាប់ ${durationStr}`, checkOut: null });
+           } else if (durationStr === "មួយរសៀល") {
+             allLeaveRecords.push({ date: dateStr, formattedDate: formatted, checkIn: null, checkOut: `ច្បាប់ ${durationStr}` });
+           } else {
+             allLeaveRecords.push({ date: dateStr, formattedDate: formatted, checkIn: `ច្បាប់ ${durationStr}`, checkOut: `ច្បាប់ ${durationStr}` });
+           }
+        }
+      }
+    });
+  } catch (e) { console.error("Leave Error:", e); }
+
+  // 2. Fetch from 'out_requests'
+  try {
+    const qOut = query(
+      collection(dbLeave, "/artifacts/default-app-id/public/data/out_requests"),
+      where("userId", "==", employeeId),
+      where("status", "==", "approved")
+    );
+    const outSnapshot = await getDocs(qOut);
+    outSnapshot.forEach((doc) => {
+        const data = doc.data();
+        const startDate = parseLeaveDate(data.startDate);
+        if(!startDate) return;
+        
+        if (startDate >= startMonthDate && startDate <= endMonthDate) {
+            const dateStr = getTodayDateString(startDate);
+            const formatted = formatDate(startDate);
+            const type = data.duration || "N/A";
+            const label = `ច្បាប់ ${type}`;
+            
+            if (type === "មួយព្រឹក") {
+                allLeaveRecords.push({ date: dateStr, formattedDate: formatted, checkIn: label, checkOut: null });
+            } else if (type === "មួយរសៀល") {
+                allLeaveRecords.push({ date: dateStr, formattedDate: formatted, checkIn: null, checkOut: label });
+            } else {
+                allLeaveRecords.push({ date: dateStr, formattedDate: formatted, checkIn: label, checkOut: label });
+            }
+        }
+    });
+  } catch (e) { console.error("Out Request Error:", e); }
+
+  return allLeaveRecords;
 }
 
 async function mergeAndRenderHistory() {
-  currentMonthRecords = mergeAttendanceAndLeave(
-    attendanceRecords,
-    leaveRecords
-  );
-
-  const now = new Date();
-  const currentMonthStr = String(now.getMonth() + 1).padStart(2, "0");
-  const currentYearStr = String(now.getFullYear());
-  const monthPrefix = `${currentYearStr}-${currentMonthStr}`;
-
-  currentMonthRecords = currentMonthRecords.filter((r) =>
-    r.date.startsWith(monthPrefix)
-  );
-
+  const mergedMap = new Map();
+  // 1. Add Attendance
+  for (const record of attendanceRecords) mergedMap.set(record.date, { ...record });
+  
+  // 2. Add Leave (Overwrite or Fill)
+  for (const leave of leaveRecords) {
+    const existing = mergedMap.get(leave.date);
+    if (existing) {
+      if (leave.checkIn && !existing.checkIn) existing.checkIn = leave.checkIn;
+      if (leave.checkOut && !existing.checkOut) existing.checkOut = leave.checkOut;
+    } else {
+      mergedMap.set(leave.date, { ...leave });
+    }
+  }
+  
+  currentMonthRecords = Array.from(mergedMap.values());
   const todayString = getTodayDateString();
-
+  
   currentMonthRecords.sort((a, b) => {
-    if (a.date === todayString) return -1;
-    if (b.date === todayString) return 1;
-    return b.date.localeCompare(a.date);
+    const aDate = a.date || "";
+    const bDate = b.date || "";
+    if (aDate === todayString && bDate !== todayString) return -1;
+    if (aDate !== todayString && bDate === todayString) return 1;
+    return bDate.localeCompare(aDate);
   });
 
   renderTodayHistory();
   renderMonthlyHistory();
-  updateButtonState();
-}
-
-function renderTodayHistory() {
-  if (!historyContainer) return;
-  historyContainer.innerHTML = "";
-
-  const todayString = getTodayDateString();
-  const todayRecord = currentMonthRecords.find(
-    (record) => record.date === todayString
-  );
-
-  // បើមិនទាន់មានទិន្នន័យ
-  if (!todayRecord) {
-    historyContainer.innerHTML = `
-      <div class="bg-white/50 border border-dashed border-slate-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
-        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3 text-slate-400">
-          <i class="ph-duotone ph-clock text-2xl"></i>
-        </div>
-        <p class="text-sm font-bold text-slate-600">មិនទាន់មានសកម្មភាព</p>
-        <p class="text-xs text-slate-400 mt-1">ទិន្នន័យថ្ងៃនេះនឹងបង្ហាញនៅទីនេះ</p>
-      </div>
-    `;
-    return;
-  }
-
-  // បើមានទិន្នន័យ (Design ថ្មី)
-  const checkIn = todayRecord.checkIn || "--:--";
-  const checkOut = todayRecord.checkOut || "--:--";
-  
-  // ពណ៌សម្រាប់ស្ថានភាព
-  const inColor = todayRecord.checkIn ? "text-green-600 bg-green-50 border-green-100" : "text-slate-400 bg-slate-50 border-slate-100";
-  const outColor = todayRecord.checkOut ? "text-red-600 bg-red-50 border-red-100" : "text-slate-400 bg-slate-50 border-slate-100";
-
-  const card = document.createElement("div");
-  card.className = "bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 relative overflow-hidden animate-slide-up";
-  
-  card.innerHTML = `
-      <div class="flex items-center justify-between mb-4 relative z-10">
-         <div>
-            <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Today Status</span>
-            <h3 class="text-sm font-bold text-slate-800 mt-0.5">${todayRecord.formattedDate}</h3>
-         </div>
-         <span class="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md shadow-blue-200">
-            TODAY
-         </span>
-      </div>
-
-      <div class="grid grid-cols-2 gap-3 relative z-10">
-         <div class="flex flex-col p-3 rounded-2xl border ${inColor}">
-            <div class="flex items-center gap-2 mb-2">
-               <div class="w-6 h-6 rounded-full bg-white/60 flex items-center justify-center">
-                  <i class="ph-fill ph-sign-in text-xs"></i>
-               </div>
-               <span class="text-[10px] font-bold opacity-70">ម៉ោងចូល</span>
-            </div>
-            <span class="text-lg font-bold tracking-tight">${checkIn}</span>
-         </div>
-
-         <div class="flex flex-col p-3 rounded-2xl border ${outColor}">
-            <div class="flex items-center gap-2 mb-2">
-               <div class="w-6 h-6 rounded-full bg-white/60 flex items-center justify-center">
-                  <i class="ph-fill ph-sign-out text-xs"></i>
-               </div>
-               <span class="text-[10px] font-bold opacity-70">ម៉ោងចេញ</span>
-            </div>
-            <span class="text-lg font-bold tracking-tight">${checkOut}</span>
-         </div>
-      </div>
-      
-      <div class="absolute -bottom-6 -right-6 w-24 h-24 bg-gradient-to-br from-slate-50 to-slate-100 rounded-full blur-2xl z-0"></div>
-  `;
-  historyContainer.appendChild(card);
-}
-
-function renderMonthlyHistory() {
-  if (!monthlyHistoryContainer) return;
-  monthlyHistoryContainer.innerHTML = "";
-
-  if (currentMonthRecords.length === 0) {
-    monthlyHistoryContainer.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-12 opacity-50">
-        <i class="ph-duotone ph-calendar-slash text-5xl mb-3 text-slate-300"></i>
-        <p class="text-sm font-medium text-slate-400">គ្មានទិន្នន័យសម្រាប់ខែនេះ</p>
-      </div>`;
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  
-  currentMonthRecords.forEach((record, i) => {
-    const checkIn = record.checkIn ? record.checkIn : "--:--";
-    const checkOut = record.checkOut ? record.checkOut : "--:--";
-    
-    // Style សម្រាប់ម៉ោង (បើមានម៉ោង ពណ៌ដិត, បើអត់ ពណ៌ប្រផេះ)
-    const inStyle = record.checkIn ? "text-slate-800 font-bold" : "text-slate-300 font-medium";
-    const outStyle = record.checkOut ? "text-slate-800 font-bold" : "text-slate-300 font-medium";
-    
-    // Highlight ថ្ងៃនេះ
-    const isToday = record.date === getTodayDateString();
-    const borderClass = isToday ? "border-blue-200 ring-4 ring-blue-50" : "border-slate-100";
-    const bgClass = isToday ? "bg-white" : "bg-white";
-
-    const card = document.createElement("div");
-    card.className = `${bgClass} rounded-2xl p-4 border ${borderClass} mb-3 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.03)] list-item-anim relative`;
-    card.style.animationDelay = `${i * 0.05}s`;
-
-    card.innerHTML = `
-       <div class="flex items-center justify-between mb-3">
-          <div class="flex items-center gap-3">
-             <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-100">
-                ${new Date(record.date).getDate()}
-             </div>
-             <div class="flex flex-col">
-                <span class="text-sm font-bold text-slate-700">${record.formattedDate}</span>
-                ${isToday ? '<span class="text-[9px] text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded w-fit">Today</span>' : ''}
-             </div>
-          </div>
-       </div>
-
-       <div class="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
-          <div class="flex-1 flex flex-col items-center justify-center py-2 border-r border-slate-200 border-dashed">
-             <span class="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Check In</span>
-             <div class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full ${record.checkIn ? 'bg-green-500' : 'bg-slate-300'}"></div>
-                <span class="text-sm ${inStyle}">${checkIn}</span>
-             </div>
-          </div>
-
-          <div class="flex-1 flex flex-col items-center justify-center py-2">
-             <span class="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Check Out</span>
-             <div class="flex items-center gap-1.5">
-                <div class="w-1.5 h-1.5 rounded-full ${record.checkOut ? 'bg-red-500' : 'bg-slate-300'}"></div>
-                <span class="text-sm ${outStyle}">${checkOut}</span>
-             </div>
-          </div>
-       </div>
-    `;
-    fragment.appendChild(card);
-  });
-  monthlyHistoryContainer.appendChild(fragment);
-}
-
-function renderEmployeeList(employees) {
-  if (!employeeListContainer) return;
-  employeeListContainer.innerHTML = "";
-  employeeListContainer.classList.remove("hidden");
-
-  if (employees.length === 0) {
-    employeeListContainer.innerHTML = `<p class="text-center text-gray-500 p-3">រកមិនឃើញ។</p>`;
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  employees.forEach((emp) => {
-    const card = document.createElement("div");
-    card.className =
-      "flex items-center p-3 rounded-xl cursor-pointer hover:bg-blue-50 active:bg-blue-100 transition-colors shadow-sm mb-2 bg-white border border-slate-50";
-
-    // កែសម្រួល៖ បន្ថែម flex-shrink-0 លើរូបភាព និង min-w-0 លើអក្សរ
-    card.innerHTML = `
-      <img src="${emp.photoUrl || PLACEHOLDER_IMG}" 
-           class="w-12 h-12 min-w-[3rem] min-h-[3rem] rounded-full object-cover border-2 border-slate-100 mr-3 bg-slate-200 flex-shrink-0"
-           loading="lazy"
-           onerror="this.onerror=null;this.src='${PLACEHOLDER_IMG}';">
-      <div class="flex flex-col overflow-hidden min-w-0">
-           <h3 class="text-sm font-bold text-slate-800 truncate">${
-             emp.name
-           }</h3>
-           <p class="text-xs text-slate-500 truncate">ID: ${emp.id}</p>
-      </div>
-    `;
-
-    card.onmousedown = () => selectUser(emp);
-    fragment.appendChild(card);
-  });
-  employeeListContainer.appendChild(fragment);
-}
-// ============================================
-// 6. FIREBASE & LOGIC LISTENERS
-// ============================================
-
-function setupAttendanceListener() {
-  if (!attendanceCollectionRef) return;
-  if (attendanceListener) attendanceListener();
-
-  attendanceListener = onSnapshot(attendanceCollectionRef, (querySnapshot) => {
-    let allRecords = [];
-    querySnapshot.forEach((doc) => allRecords.push(doc.data()));
-
-    attendanceRecords = allRecords;
-    currentMonthRecords = mergeAttendanceAndLeave(
-      attendanceRecords,
-      leaveRecords
-    ); // Call mergeAndRenderHistory to apply filtering
-
-    mergeAndRenderHistory();
-
-    const actionArea = $("dynamicActionArea");
-    const activityArea = $("todayActivitySection");
-
-    if (actionArea && activityArea) {
-      actionArea.style.transition = "opacity 0.5s ease";
-      activityArea.style.transition = "opacity 0.5s ease 0.1s";
-      requestAnimationFrame(() => {
-        actionArea.style.opacity = "1";
-        activityArea.style.opacity = "1";
-      });
-    }
-  });
-}
-
-function startLeaveListeners() {
-  if (!dbLeave || !currentUser) {
-    console.log("Leave Database not ready or User not selected.");
-    return;
-  }
-  const employeeId = currentUser.id;
-  const reFetch = async () => {
-    mergeAndRenderHistory();
-  };
-
-  try {
-    const qLeave = query(
-      collection(
-        dbLeave,
-        "artifacts/default-app-id/public/data/leave_requests"
-      ),
-      where("userId", "==", employeeId)
-    );
-    leaveCollectionListener = onSnapshot(qLeave, reFetch);
-
-    const qOut = query(
-      collection(dbLeave, "artifacts/default-app-id/public/data/out_requests"),
-      where("userId", "==", employeeId)
-    );
-    outCollectionListener = onSnapshot(qOut, reFetch);
-  } catch (error) {
-    console.error("Error connecting to Leave DB:", error);
-  }
-}
-
-function startSessionListener(employeeId) {
-  if (sessionListener) sessionListener();
-  const sessionDocRef = doc(sessionCollectionRef, employeeId);
-  sessionListener = onSnapshot(sessionDocRef, (docSnap) => {
-    if (!docSnap.exists()) {
-      forceLogout("Session បានបញ្ចប់។");
-      return;
-    }
-    const sessionData = docSnap.data();
-    if (
-      localStorage.getItem("currentDeviceId") &&
-      sessionData.deviceId !== localStorage.getItem("currentDeviceId")
-    ) {
-      forceLogout("គណនីកំពុងប្រើនៅកន្លែងផ្សេង។");
-    }
-  });
-}
-
-// ============================================
-// 7. FACE & CAMERA LOGIC
-// ============================================
-
-async function loadAIModels() {
-  try {
-    await Promise.all([
-      faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
-      faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
-      faceapi.nets.faceRecognitionNet.loadFromUri("./models"), // ✅ Add Expression Net for Smile Detection
-      faceapi.nets.faceExpressionNet.loadFromUri("./models"),
-    ]);
-    modelsLoaded = true;
-  } catch (e) {
-    console.error("Error loading models:", e);
-  }
-}
-
-// ✅ កែសម្រួល៖ ប្រើរូបភាពពី DOM ផ្ទាល់ ជំនួសឱ្យការ Download ថ្មី
-async function prepareFaceMatcher(imgElement) {
-  currentUserFaceMatcher = null;
-  profileFaceError = false;
-  if (!imgElement) return;
-
-  try {
-    // ប្រើរូបភាពដែល Load រួចស្រាប់នៅក្នុង HTML
-    const detection = await faceapi
-      .detectSingleFace(imgElement, new faceapi.TinyFaceDetectorOptions())
-      .withFaceLandmarks()
-      .withFaceDescriptor();
-
-    if (detection) {
-      currentUserFaceMatcher = new faceapi.FaceMatcher(detection.descriptor);
-      console.log("Face Matcher Ready");
-    } else {
-      console.warn("No face detected in profile image.");
-      profileFaceError = true;
-    }
-  } catch (e) {
-    console.error("Error preparing face matcher:", e);
-    profileFaceError = true;
-  }
-}
-
-async function selectUser(employee) {
-  // 1. ការពារការចុចលើទិន្នន័យទទេ
-  if (!employee) return;
-
-  // 2. ពិនិត្យមើលថា AI Models ដំណើរការហើយឬនៅ?
-  if (!modelsLoaded) {
-    alert("ប្រព័ន្ធ AI កំពុងដំណើរការ... សូមរង់ចាំបន្តិច រួចចុចម្តងទៀត!");
-    return;
-  }
-
-  // បង្ហាញផ្ទាំង Loading
-  changeView("loadingView");
-  if (typeof cameraLoadingText !== "undefined") {
-    cameraLoadingText.textContent = "កំពុងរៀបចំប្រព័ន្ធសុវត្ថិភាព...";
-  } else {
-    // បើរកមិនឃើញ Element, ព្យាយាមរកតាម ID
-    const loadingTxt = document.getElementById("loadingText");
-    if (loadingTxt) loadingTxt.textContent = "កំពុងវិភាគទិន្នន័យមុខ...";
-  }
-
-  currentUser = employee;
-  
-  // សម្គាល់៖ យើងមិន Save ID ទុកទេ ទាល់តែ Login ជាប់ (តាមការកែសម្រួលមុន)
-
-  // 3. ចាប់ផ្តើមដំណើរការរូបភាព Profile
-  const tempImg = new Image();
-  tempImg.crossOrigin = "Anonymous"; // សំខាន់សម្រាប់ CORS
-  
-  // បើរូបភាពមិនមាន ឬខូច ប្រើរូប Placeholder
-  const imageUrl = employee.photoUrl || PLACEHOLDER_IMG;
-  tempImg.src = imageUrl;
-
-  tempImg.onload = async () => {
-    try {
-      // វិភាគរកមុខនៅក្នុងរូប Profile
-      await prepareFaceMatcher(tempImg);
-
-      // 4. លក្ខខណ្ឌបើកកាមេរ៉ា
-      if (currentUserFaceMatcher) {
-        // ✅ បើរូប Profile មានមុខច្បាស់ -> បើកកាមេរ៉ាស្កេន
-        console.log("Profile face detected. Starting camera...");
-        startFaceScan("login");
-      } else {
-        // ❌ បើរូប Profile រកមុខមិនឃើញ -> ជូនដំណឹង និងមិនឱ្យចូល (ឬឱ្យចូលតាមការសម្រេចចិត្ត)
-        console.warn("No face detected in profile image.");
-        alert("រូបថត Profile របស់អ្នកមើលមិនច្បាស់ ឬមិនមានមុខ! ប្រព័ន្ធមិនអាចធ្វើការផ្ទៀងផ្ទាត់បានទេ។");
-        
-        // ជម្រើស៖ បើចង់ឱ្យចូលបានដោយមិនបាច់ស្កេន (សម្រាប់តេស្ត) អាចបើកបន្ទាត់ខាងក្រោម៖
-        // finalizeLogin(employee); 
-        
-        changeView("employeeListView");
-      }
-    } catch (error) {
-      console.error("Error processing profile image:", error);
-      alert("មានបញ្ហាក្នុងការវិភាគរូបភាព៖ " + error.message);
-      changeView("employeeListView");
-    }
-  };
-
-  tempImg.onerror = () => {
-    alert("មិនអាចទាញយករូបភាព Profile បានទេ។ សូមពិនិត្យមើលអ៊ីនធឺណិត ឬតំណភ្ជាប់រូបភាព។");
-    changeView("employeeListView");
-  };
-}
-async function startFaceScan(action) {
-  currentScanAction = action;
-  livenessStep = 0; // ✅ Reset Step
-
-  if (!modelsLoaded) {
-    showMessage("Notice", "AI មិនទាន់ដំណើរការ (Models not found).");
-    return;
-  }
-
-  if (cameraModal) {
-    cameraModal.classList.remove("modal-hidden");
-    cameraModal.classList.add("modal-visible");
-  }
-
-  try {
-    let stream;
-    try {
-      // ព្យាយាមបើកកាមេរ៉ាជាមួយការកំណត់ល្អ (Resolution ខ្ពស់)
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
-      });
-    } catch (e) {
-      console.warn("High-res camera failed, trying basic...", e); // បើបរាជ័យ (ដូជានៅលើ Telegram ខ្លះ) ព្យាយាមបើកតាមរបៀបធម្មតា
-      stream = await navigator.mediaDevices.getUserMedia({ video: true });
-    }
-
-    videoStream = stream;
-
-    if (videoElement) {
-      videoElement.srcObject = videoStream; // Telegram/Webview ត្រូវការ play() ច្បាស់លាស់
-      videoElement.setAttribute("playsinline", "true");
-      await videoElement.play().catch((e) => console.error("Play error:", e));
-
-      isScanning = true;
-      livenessStep = 0; // Reset step // រង់ចាំវីដេអូដើរស្រួលបួលសិន
-
-      if (videoElement.readyState >= 3) {
-        // HAVE_FUTURE_DATA
-        scanLoop();
-      } else {
-        videoElement.oncanplay = () => scanLoop();
-      }
-    }
-  } catch (err) {
-    console.error("Camera Error:", err);
-    let msg = "កាមេរ៉ាមានបញ្ហា";
-    if (
-      err.name === "NotAllowedError" ||
-      err.name === "PermissionDeniedError"
-    ) {
-      msg = "សូមអនុញ្ញាត (Allow) ឱ្យប្រើកាមេរ៉ានៅក្នុង Settings។";
-    }
-    showMessage("Error", msg);
-    hideCameraModal();
-  }
-}
-
-function stopCamera() {
-  isScanning = false;
-  if (videoStream) videoStream.getTracks().forEach((t) => t.stop());
-  if (videoElement) videoElement.srcObject = null;
-}
-function hideCameraModal() {
-  stopCamera();
-  if (cameraModal) {
-    cameraModal.classList.add("modal-hidden");
-    cameraModal.classList.remove("modal-visible");
-  }
-  // បើសិនជាបិទកាមេរ៉ា ក្នុងពេលកំពុង Login (ហើយមិនមែនមកពីការស្កេនជោគជ័យទេ) -> Logout
-  if (currentScanAction === "login") {
-    console.log("User cancelled login scan.");
-    logout();
-  }
-}
-
-async function scanLoop() {
-  if (!isScanning) return;
-
-  if (profileFaceError) {
-    if (cameraLoadingText) {
-      cameraLoadingText.textContent = "រូប Profile មើលមិនច្បាស់ (រកមុខមិនឃើញ)";
-      cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
-    }
-    return;
-  }
-
-  if (
-    videoElement.paused ||
-    videoElement.ended ||
-    !faceapi.nets.tinyFaceDetector.params
-  ) {
-    return setTimeout(scanLoop, 100);
-  } // Adjust thresholds based on step: when turning head, recognition score drops, so we relax threshold
-
-  const currentMatchThreshold = livenessStep > 0 ? 0.65 : FACE_MATCH_THRESHOLD;
-
-  const options = new faceapi.TinyFaceDetectorOptions({
-    inputSize: 224,
-    scoreThreshold: 0.5,
-  }); // Include expressions if loaded
-  let detection;
-  try {
-    if (faceapi.nets.faceExpressionNet.params) {
-      detection = await faceapi
-        .detectSingleFace(videoElement, options)
-        .withFaceLandmarks()
-        .withFaceDescriptor()
-        .withFaceExpressions();
-    } else {
-      detection = await faceapi
-        .detectSingleFace(videoElement, options)
-        .withFaceLandmarks()
-        .withFaceDescriptor();
-    }
-  } catch (e) {
-    console.error("Detect error", e);
-    return setTimeout(scanLoop, 100);
-  }
-
-  if (!detection) {
-    if (cameraLoadingText) {
-      cameraLoadingText.textContent = "កំពុងស្វែងរកមុខ...";
-      cameraLoadingText.className = "text-white font-bold text-lg mb-1";
-    }
-    return setTimeout(scanLoop, 30);
-  }
-
-  if (!currentUserFaceMatcher) {
-    if (cameraLoadingText)
-      cameraLoadingText.textContent = "កំពុងរៀបចំទិន្នន័យមុខ...";
-    return setTimeout(scanLoop, 500);
-  }
-
-  const match = currentUserFaceMatcher.findBestMatch(detection.descriptor); // Check Identity (with dynamic threshold)
-
-  if (match.distance > currentMatchThreshold) {
-    if (cameraLoadingText) {
-      cameraLoadingText.textContent =
-        "មុខមិនត្រូវគ្នា (" + Math.round((1 - match.distance) * 100) + "%)";
-      cameraLoadingText.className = "text-red-500 font-bold text-lg mb-1";
-    } // Only reset step if match is VERY poor (totally wrong person)
-    if (match.distance > 0.7) {
-      livenessStep = 0;
-    }
-    setTimeout(scanLoop, 100);
-    return;
-  } // If matched, proceed with Liveness Steps
-
-  const landmarks = detection.landmarks; // Nose tip: index 30. Left cheek: 0. Right cheek: 16.
-  const noseX = landmarks.positions[30].x;
-  const leftFaceX = landmarks.positions[0].x;
-  const rightFaceX = landmarks.positions[16].x; // Ratio 0.5 is center. // Looking Left (user's left) -> Nose moves right on image -> Ratio increases (>0.5) // Looking Right (user's right) -> Nose moves left on image -> Ratio decreases (<0.5)
-
-  const faceTurnRatio = (noseX - leftFaceX) / (rightFaceX - leftFaceX);
-
-  if (livenessStep === 0) {
-    // Matched! Move to Smile
-    livenessStep = 1;
-  }
-
-  if (livenessStep === 1) {
-    if (cameraLoadingText) {
-      cameraLoadingText.textContent = "សូមញញឹមបន្តិច (Smile)";
-      cameraLoadingText.className =
-        "text-yellow-400 font-bold text-lg mb-1 animate-pulse";
-    }
-
-    let isSmiling = false;
-    if (
-      detection.expressions &&
-      detection.expressions.happy > SMILE_THRESHOLD
-    ) {
-      isSmiling = true;
-    }
-
-    if (isSmiling) {
-      livenessStep = 2; // Move to Turn Left
-    }
-  } else if (livenessStep === 2) {
-    if (cameraLoadingText) {
-      cameraLoadingText.textContent = "សូមងាកឆ្វេង (Turn Left)";
-      cameraLoadingText.className =
-        "text-blue-400 font-bold text-lg mb-1 animate-pulse";
-    } // Check Turn Left (Ratio increases > 0.6)
-
-    if (faceTurnRatio > HEAD_TURN_LEFT_THRESHOLD) {
-      livenessStep = 3; // Move to Turn Right
-    }
-  } else if (livenessStep === 3) {
-    if (cameraLoadingText) {
-      cameraLoadingText.textContent = "សូមងាកស្តាំ (Turn Right)";
-      cameraLoadingText.className =
-        "text-blue-400 font-bold text-lg mb-1 animate-pulse";
-    } // Check Turn Right (Ratio decreases < 0.4)
-
-    if (faceTurnRatio < HEAD_TURN_RIGHT_THRESHOLD) {
-      livenessStep = 4; // Done
-    }
-  } else if (livenessStep === 4) {
-    if (cameraLoadingText) {
-      cameraLoadingText.textContent = "ជោគជ័យ!";
-      cameraLoadingText.className =
-        "text-green-400 font-bold text-lg mb-1 animate-pulse";
-    }
-    isScanning = false;
-    processScanSuccess();
-    return;
-  }
-
-  setTimeout(scanLoop, 30);
-}
-
-// ✅ 2. កែសម្រួល៖ ពេលស្កេនជោគជ័យ បែងចែក Login និង CheckIn
-// ✅ កែសម្រួល៖ ដោះស្រាយបញ្ហា Login Error (ការពារកុំឱ្យ Logout ពេលស្កេនជាប់)
-function processScanSuccess() {
-  if (cameraLoadingText)
-    cameraLoadingText.innerHTML = '<span class="text-green-400">ជោគជ័យ!</span>';
-
-  setTimeout(() => {
-    // ចងចាំសកម្មភាពបច្ចុប្បន្ន
-    const actionToPerform = currentScanAction;
-
-    // សម្គាល់ថាបានបញ្ចប់ (កុំឱ្យ hideCameraModal ច្រឡំថាបិទចោល)
-    currentScanAction = null;
-
-    hideCameraModal();
-
-    if (actionToPerform === "login") {
-      // ស្កេន Login ជោគជ័យ -> ចូល Home
-      if (currentUser) {
-        finalizeLogin(currentUser);
-      } else {
-        changeView("employeeListView");
-      }
-    } else if (actionToPerform === "checkIn") {
-      handleCheckIn();
-    } else if (actionToPerform === "checkOut") {
-      handleCheckOut();
-    }
-  }, 800);
-}
-// ============================================
-// 8. CHECK-IN / CHECK-OUT LOGIC
-// ============================================
-
-async function handleCheckIn() {
-  if (actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
-
-  try {
-    const coords = await getUserLocation();
-    if (!isInsideArea(coords.latitude, coords.longitude)) {
-      showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
-      updateButtonState();
-      return;
-    }
-
-    const now = new Date();
-    const todayDocId = getTodayDateString(now);
-
-    await setDoc(doc(attendanceCollectionRef, todayDocId), {
-      employeeId: currentUser.id,
-      employeeName: currentUser.name,
-      department: currentUser.department,
-      shift: currentUserShift,
-      date: todayDocId,
-      checkInTimestamp: now.toISOString(),
-      formattedDate: formatDate(now),
-      checkIn: formatTime(now),
-      checkInLocation: { lat: coords.latitude, lon: coords.longitude },
-    });
-  } catch (e) {
-    showMessage("Error", e.message, true);
-    updateButtonState();
-  }
-}
-
-async function handleCheckOut() {
-  if (actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
-
-  try {
-    const coords = await getUserLocation();
-    if (!isInsideArea(coords.latitude, coords.longitude)) {
-      showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
-      updateButtonState();
-      return;
-    }
-
-    const now = new Date();
-    const todayDocId = getTodayDateString(now);
-
-    await setDoc(
-      doc(attendanceCollectionRef, todayDocId),
-      {
-        employeeId: currentUser.id,
-        employeeName: currentUser.name,
-        department: currentUser.department,
-        shift: currentUserShift,
-        date: todayDocId,
-        formattedDate: formatDate(now),
-        checkOutTimestamp: now.toISOString(),
-        checkOut: formatTime(now),
-        checkOutLocation: { lat: coords.latitude, lon: coords.longitude },
-      },
-      { merge: true }
-    );
-  } catch (e) {
-    showMessage("Error", e.message, true);
-    updateButtonState();
-  }
-}
-
-// ✅ 3. កែសម្រួល៖ ប៊ូតុង Check In/Out មិនហៅ startFaceScan ទេ (ហៅ handle ផ្ទាល់)
-function showActionButton(title, subtitle, icon, gradientClass, action) {
-  if (!actionButtonContainer) return;
-  actionButtonContainer.classList.remove("hidden");
-
-  actionBtnTitle.textContent = title;
-  actionBtnTitle.className = "text-xl font-bold text-white tracking-wide";
-
-  actionBtnSubtitle.textContent = subtitle;
-  actionBtnSubtitle.className =
-    "text-blue-100 text-[11px] font-medium opacity-90";
-
-  actionBtnIcon.className = `ph-bold ${icon} text-2xl text-white`;
-
-  actionBtnBg.className = `absolute inset-0 bg-gradient-to-r ${gradientClass} shadow-lg transition-all duration-500`;
-
-  const currentBtn = $("mainActionButton");
-  if (currentBtn) {
-    // 🔥 កែត្រង់នេះ៖ ហៅ handleCheckIn ឬ handleCheckOut ផ្ទាល់តែម្តង
-    currentBtn.onclick = () => {
-      if (action === "checkIn") {
-        handleCheckIn();
-      } else {
-        handleCheckOut();
-      }
-    };
-
-    if (action === "checkIn") {
-      currentBtn.className =
-        "w-full group relative overflow-hidden rounded-[1.8rem] p-1 shadow-lg shadow-blue-300/50 transition-all active:scale-95 hover:shadow-xl btn-pulse";
-    } else {
-      currentBtn.className =
-        "w-full group relative overflow-hidden rounded-[1.8rem] p-1 shadow-lg shadow-red-300/50 transition-all active:scale-95 hover:shadow-xl btn-pulse";
-    }
-  }
-}
-
-function showStatusMessage(title, desc, icon, iconBgClass) {
-  if (!statusMessageContainer) return;
-  statusMessageContainer.classList.remove("hidden");
-  statusTitle.textContent = title;
-  statusDesc.textContent = desc;
-  statusIcon.className = `ph-duotone ${icon} text-3xl`;
-  statusIconBg.className = `w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-3 ${iconBgClass}`;
+  await updateButtonState();
 }
 
 async function updateButtonState() {
   const todayString = getTodayDateString();
-  const todayData = currentMonthRecords.find((r) => r.date === todayString);
-  const shift = currentUserShift;
-  const hasShift = shift && shift !== "N/A" && shift !== "None";
-
-  if (actionButtonContainer) actionButtonContainer.classList.add("hidden");
-  if (statusMessageContainer) statusMessageContainer.classList.add("hidden");
-  if (noShiftContainer) noShiftContainer.classList.add("hidden");
-  if (shiftStatusIndicator) shiftStatusIndicator.classList.add("hidden");
-
-  if (!hasShift) {
-    if (noShiftContainer) noShiftContainer.classList.remove("hidden");
-    return;
-  }
-
-  const canCheckIn = checkShiftTime(shift, "checkIn");
-  const canCheckOut = checkShiftTime(shift, "checkOut"); // 1. Check if already checked out
-
-  if (todayData && todayData.checkOut) {
-    showStatusMessage(
-      "កត់ត្រារួចរាល់",
-      "អ្នកបាន Check Out រួចរាល់ហើយ",
-      "ph-check-circle",
-      "bg-green-100 text-green-600"
-    );
-    return;
-  } // 2. Logic for Check In/Out
+  const todayData = currentMonthRecords.find(r => r.date === todayString);
+  
+  let checkInDisabled = false;
+  let checkOutDisabled = true;
+  let statusMessage = "សូមធ្វើការ Check-in";
+  let statusClass = "text-gray-500";
 
   if (todayData && todayData.checkIn) {
-    // Already Checked In
-    if (canCheckOut) {
-      showActionButton(
-        "Check Out",
-        "ចុចទីនេះដើម្បីចាកចេញ",
-        "ph-sign-out",
-        "from-orange-500 to-red-600", // Vivid Orange/Red Gradient
-        "checkOut"
-      );
+    if (todayData.checkIn.includes("ច្បាប់")) {
+       checkInDisabled = true;
+       statusMessage = `ថ្ងៃនេះ៖ ${todayData.checkIn}`;
+       statusClass = "text-blue-600";
     } else {
-      showStatusMessage(
-        "កំពុងបំពេញការងារ",
-        "រង់ចាំដល់ម៉ោងចេញពីការងារ",
-        "ph-hourglass",
-        "bg-blue-100 text-blue-600"
-      );
-      if (statusIcon) statusIcon.classList.add("animate-breathe");
+       checkInDisabled = true;
+       checkOutDisabled = false; 
+       statusMessage = `បាន Check-in ម៉ោង: ${todayData.checkIn}`;
+       statusClass = "text-green-600";
     }
-  } else {
-    // Not Checked In
-    if (canCheckIn) {
-      showActionButton(
-        "Check In",
-        "ចុចទីនេះដើម្បីចូលធ្វើការ",
-        "ph-sign-in",
-        "from-blue-600 to-indigo-600", // Vivid Blue/Indigo Gradient
-        "checkIn"
-      );
-    } else if (canCheckOut) {
-      showActionButton(
-        "Check Out",
-        "អ្នកមិនបាន Check In (ចុចដើម្បីចេញ)",
-        "ph-sign-out",
-        "from-orange-500 to-red-600", // Vivid Orange/Red Gradient
-        "checkOut"
-      );
-    } else {
-      showStatusMessage(
-        "ក្រៅម៉ោង Check-in",
-        "សូមរង់ចាំដល់ម៉ោងកំណត់",
-        "ph-clock-slash",
-        "bg-slate-100 text-slate-400"
-      );
+    
+    if (todayData.checkOut) {
+      checkOutDisabled = true;
+      if (todayData.checkIn.includes("ច្បាប់") && todayData.checkOut.includes("ច្បាប់")) {
+         statusMessage = `${todayData.checkIn}`;
+      } else {
+         statusMessage = `បាន Check-out ម៉ោង: ${todayData.checkOut}`;
+         statusClass = "text-red-600";
+      }
     }
+  }
+
+  // Shift Check (Visual Only)
+  const canCheckIn = checkShiftTime(currentUserShift, "checkIn");
+  if (!todayData || !todayData.checkIn) {
+      if (!canCheckIn) {
+         // statusMessage += " (ក្រៅម៉ោង)";
+      }
+  }
+
+  checkInButton.disabled = checkInDisabled;
+  checkOutButton.disabled = checkOutDisabled;
+  attendanceStatus.textContent = statusMessage;
+  attendanceStatus.className = `text-center text-sm font-medium pb-4 px-6 h-10 flex items-center justify-center ${statusClass}`;
+}
+
+// ==========================================
+// 4. FACE API & CAMERA (UPDATED)
+// ==========================================
+
+async function loadAIModels() {
+  const MODEL_URL = "./models";
+  loadingText.textContent = "កំពុងទាញយក AI Models...";
+  try {
+    await Promise.all([
+      faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+      faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+      faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+    ]);
+    console.log("AI Models Loaded");
+    modelsLoaded = true;
+  } catch (e) {
+    console.error("Error loading AI models", e);
+    showMessage("បញ្ហាធ្ងន់ធ្ងរ", "មិនអាចទាញយក AI Models បានទេ។", true);
   }
 }
 
-// ============================================
-// 9. USER SELECTION & INIT
-// ============================================
-// ✅ 1. កែសម្រួល៖ ពេលជ្រើសរើសឈ្មោះ ត្រូវស្កេនមុខសិន (Login Face Scan)
+async function prepareFaceMatcher(imageUrl) {
+  currentUserFaceMatcher = null;
+  if (!imageUrl || imageUrl.includes("placehold.co")) return;
 
-// ✅ Function ថ្មី៖ ដំណើរការចូលប្រើប្រាស់ ក្រោយពេលស្កេនមុខជោគជ័យ
-// ✅ Function ថ្មី៖ ដំណើរការចូលប្រើប្រាស់ (កែសម្រួលដើម្បីការពារ Error)
-// រក function នេះក្នុង script.js ហើយកែដូចខាងក្រោម
-async function finalizeLogin(employee) {
-  if (!employee) {
-    console.error("⛔ Error: finalizeLogin ត្រូវបានហៅដោយគ្មានទិន្នន័យ!");
-    changeView("employeeListView");
+  try {
+    const img = await faceapi.fetchImage(imageUrl);
+    const detection = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+    if (detection) {
+      currentUserFaceMatcher = new faceapi.FaceMatcher(detection.descriptor);
+    }
+  } catch (e) {
+    console.error("Face Matcher Error:", e);
+  }
+}
+
+async function startFaceScan(action) {
+  currentScanAction = action;
+  
+  if (!modelsLoaded) {
+    showMessage("រង់ចាំ", "ប្រព័ន្ធ AI កំពុងដំណើរការ...", true);
     return;
   }
 
-  console.log("✅ Login ជោគជ័យសម្រាប់:", employee.name);
-  currentUser = employee;
-  
-  // ✅ បន្ថែមបន្ទាត់នេះនៅទីនេះវិញ (Save ID តែពេលស្កេនជោគជ័យប៉ុណ្ណោះ)
-  localStorage.setItem("savedEmployeeId", employee.id); 
-
-  changeView("homeView");
-
-  // កំណត់ UI ឡើងវិញ
-  if (profileName) profileName.textContent = employee.name;
-  if (profileId) profileId.textContent = `ID: ${employee.id}`;
-  if (profileImage) {
-    profileImage.src = employee.photoUrl || PLACEHOLDER_IMG;
+  // Login Flow
+  if (action === 'login') {
+      if (!pendingUser) return;
+      if (!pendingUser.photoUrl || pendingUser.photoUrl.includes("placehold.co")) {
+          showMessage("មិនអាចចូលបាន", "គណនីនេះមិនមានរូបថតសម្រាប់ស្កេនទេ។", true);
+          return;
+      }
+      cameraLoadingText.textContent = "កំពុងត្រៀមទិន្នន័យ...";
+      await prepareFaceMatcher(pendingUser.photoUrl);
   }
 
-  // Reset UI ផ្សេងៗ
-  const actionArea = document.getElementById("dynamicActionArea");
-  const activityArea = document.getElementById("todayActivitySection");
-  if (actionArea) actionArea.style.opacity = "0";
-  if (activityArea) activityArea.style.opacity = "0";
-
-  // គណនា Shift
-  const dayOfWeek = new Date().getDay();
-  const dayToShiftKey = [
-    "shiftSun", "shiftMon", "shiftTue", "shiftWed", "shiftThu", "shiftFri", "shiftSat",
-  ];
-  currentUserShift = employee[dayToShiftKey[dayOfWeek]] || "N/A";
-
-  // បង្ហាញព័ត៌មានបន្ថែម
-  if (profileDepartment) profileDepartment.textContent = employee.department || "N/A";
-  if (profileGroup) profileGroup.textContent = employee.group || "N/A";
-  if (profileShift) profileShift.textContent = currentUserShift;
-
-  // កំណត់ Firebase References
-  const firestoreUserId = employee.id;
-  
-  // ប្រាកដថា dbAttendance ត្រូវបាន Initialize រួចរាល់
-  if(typeof dbAttendance !== 'undefined' && dbAttendance) {
-      attendanceCollectionRef = collection(
-        dbAttendance,
-        `attendance/${firestoreUserId}/records`
-      );
+  if (!currentUserFaceMatcher) {
+    showMessage("បញ្ហា", "មិនអាចស្កេនមុខបានទេ។ រូបថតមិនច្បាស់ ឬគ្មាន។", true);
+    return;
   }
 
-  // កត់ត្រា Session
-  currentDeviceId = self.crypto.randomUUID();
-  localStorage.setItem("currentDeviceId", currentDeviceId);
+  cameraModal.classList.remove("modal-hidden");
+  cameraModal.classList.add("modal-visible");
+  captureButton.style.display = "none";
+  cameraLoadingText.textContent = "កំពុងបើកកាមេរ៉ា...";
 
   try {
-     if(typeof sessionCollectionRef !== 'undefined' && sessionCollectionRef) {
-        await setDoc(doc(sessionCollectionRef, employee.id), {
-          deviceId: currentDeviceId,
-          timestamp: new Date().toISOString(),
-          employeeName: employee.name,
-        });
-     }
+    videoStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+    videoElement.srcObject = videoStream;
+    videoElement.onplay = () => {
+      cameraLoadingText.textContent = "ដាក់មុខឱ្យចំកាមេរ៉ា";
+      captureButton.style.display = "flex";
+    };
+  } catch (err) {
+    hideCameraModal();
+    showMessage("បញ្ហា", "មិនអាចបើកកាមេរ៉ាបានទេ។", true);
+  }
+}
+
+function stopCamera() {
+  if (videoStream) {
+    videoStream.getTracks().forEach(track => track.stop());
+    videoStream = null;
+  }
+  videoElement.srcObject = null;
+}
+
+function hideCameraModal() {
+  stopCamera();
+  cameraModal.classList.add("modal-hidden");
+  cameraModal.classList.remove("modal-visible");
+}
+
+async function handleCaptureAndAnalyze() {
+  if (!videoStream) return;
+  captureButton.disabled = true;
+  cameraLoadingText.textContent = "កំពុងវិភាគ...";
+
+  const displaySize = { width: videoElement.videoWidth, height: videoElement.videoHeight };
+  faceapi.matchDimensions(cameraCanvas, displaySize);
+  cameraCanvas.getContext("2d").drawImage(videoElement, 0, 0, displaySize.width, displaySize.height);
+
+  try {
+    const detection = await faceapi.detectSingleFace(cameraCanvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+    
+    if (!detection) {
+      cameraLoadingText.textContent = "រកមិនឃើញមុខ!";
+      captureButton.disabled = false;
+      return;
+    }
+
+    const bestMatch = currentUserFaceMatcher.findBestMatch(detection.descriptor);
+    
+    if (bestMatch.distance < FACE_MATCH_THRESHOLD) {
+      cameraLoadingText.textContent = "ជោគជ័យ!";
+      setTimeout(() => {
+        hideCameraModal();
+        if (currentScanAction === "login") {
+            performLogin(); 
+        } else if (currentScanAction === "checkIn") {
+            handleCheckIn();
+        } else if (currentScanAction === "checkOut") {
+            handleCheckOut();
+        }
+      }, 500);
+    } else {
+      cameraLoadingText.textContent = "មុខមិនត្រូវគ្នា!";
+      captureButton.disabled = false;
+    }
   } catch (e) {
-    console.warn("Session write failed:", e);
+    console.error(e);
+    cameraLoadingText.textContent = "Error!";
+    captureButton.disabled = false;
+  }
+}
+
+// ==========================================
+// 5. CHECK-IN / CHECK-OUT LOGIC
+// ==========================================
+
+async function handleCheckIn() {
+  if (!attendanceCollectionRef || !currentUser) return;
+  checkInButton.disabled = true;
+  attendanceStatus.textContent = "កំពុងរក្សាទុក...";
+  
+  const now = new Date();
+  const todayDocId = getTodayDateString(now);
+
+  const data = {
+    employeeId: currentUser.id,
+    employeeName: currentUser.name,
+    department: currentUser.department,
+    group: currentUser.group,
+    grade: currentUser.grade,
+    gender: currentUser.gender,
+    shift: currentUserShift,
+    date: todayDocId,
+    checkInTimestamp: now.toISOString(),
+    checkOutTimestamp: null,
+    formattedDate: formatDate(now),
+    checkIn: formatTime(now),
+    checkOut: null,
+    checkInLocation: null // GPS Removed
+  };
+
+  try {
+    await setDoc(doc(attendanceCollectionRef, todayDocId), data);
+    attendanceStatus.textContent = "Check-in ជោគជ័យ!";
+  } catch (error) {
+    console.error(error);
+    showMessage("បញ្ហា", "មិនអាច Check-in បានទេ", true);
+  }
+}
+
+async function handleCheckOut() {
+  if (!attendanceCollectionRef) return;
+  checkOutButton.disabled = true;
+  attendanceStatus.textContent = "កំពុងរក្សាទុក...";
+
+  const now = new Date();
+  const todayDocId = getTodayDateString(now);
+  const data = {
+    checkOutTimestamp: now.toISOString(),
+    checkOut: formatTime(now),
+    checkOutLocation: null // GPS Removed
+  };
+
+  try {
+    await updateDoc(doc(attendanceCollectionRef, todayDocId), data);
+    attendanceStatus.textContent = "Check-out ជោគជ័យ!";
+  } catch (error) {
+    console.error(error);
+    showMessage("បញ្ហា", "មិនអាច Check-out បានទេ", true);
+  }
+}
+
+// ==========================================
+// 6. INITIALIZATION & DATA FETCHING
+// ==========================================
+
+async function initializeAppFirebase() {
+  try {
+    changeView("loadingView");
+    loadingText.textContent = "កំពុងចាប់ផ្តើមប្រព័ន្ធ...";
+
+    const attendanceApp = initializeApp(firebaseConfigAttendance);
+    dbAttendance = getFirestore(attendanceApp);
+    authAttendance = getAuth(attendanceApp);
+    sessionCollectionRef = collection(dbAttendance, "active_sessions");
+
+    const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
+    dbLeave = getFirestore(leaveApp);
+
+    await setupAuthListener();
+    
+    // ** IMPORTANT: Wait for both AI and Data BEFORE showing list **
+    loadingText.textContent = "កំពុងទាញយក AI & ទិន្នន័យ...";
+    await Promise.all([
+        loadAIModels(),
+        fetchGoogleSheetData()
+    ]);
+
+    // Check auto-login OR show list
+    const savedId = localStorage.getItem("savedEmployeeId");
+    if (savedId && allEmployees.length > 0) {
+      const user = allEmployees.find(e => e.id === savedId);
+      if (user) {
+          pendingUser = user;
+          performLogin(true); 
+      } else {
+          changeView("employeeListView");
+      }
+    } else {
+      changeView("employeeListView");
+    }
+
+  } catch (error) {
+    console.error("Init Error:", error);
+    showMessage("Error", "Initialization Failed: " + error.message, true);
+  }
+}
+
+async function setupAuthListener() {
+  return new Promise((resolve) => {
+    onAuthStateChanged(authAttendance, async (user) => {
+      if (!user) {
+        await signInAnonymously(authAttendance);
+      }
+      resolve();
+    });
+  });
+}
+
+async function fetchGoogleSheetData() {
+  try {
+    const response = await fetch(GVIZ_URL);
+    const text = await response.text();
+    const jsonText = text.match(/google\.visualization\.Query\.setResponse\((.*)\);/s)[1];
+    const data = JSON.parse(jsonText);
+
+    allEmployees = data.table.rows.map(row => {
+      const c = row.c;
+      if (!c[COL_INDEX.ID]?.v) return null;
+      return {
+        id: String(c[COL_INDEX.ID].v).trim(),
+        name: c[COL_INDEX.NAME]?.v || "N/A",
+        department: c[COL_INDEX.DEPT]?.v || "N/A",
+        photoUrl: c[COL_INDEX.PHOTO]?.v,
+        group: c[COL_INDEX.GROUP]?.v || "N/A",
+        gender: c[COL_INDEX.GENDER]?.v || "N/A",
+        grade: c[COL_INDEX.GRADE]?.v || "N/A",
+        shiftMon: c[COL_INDEX.SHIFT_MON]?.v,
+        shiftTue: c[COL_INDEX.SHIFT_TUE]?.v,
+        shiftWed: c[COL_INDEX.SHIFT_WED]?.v,
+        shiftThu: c[COL_INDEX.SHIFT_THU]?.v,
+        shiftFri: c[COL_INDEX.SHIFT_FRI]?.v,
+        shiftSat: c[COL_INDEX.SHIFT_SAT]?.v,
+        shiftSun: c[COL_INDEX.SHIFT_SUN]?.v,
+      };
+    }).filter(e => e && e.group !== "ការងារក្រៅ" && e.group !== "បុគ្គលិក");
+
+    renderEmployeeList(allEmployees);
+  } catch (error) {
+    console.error(error);
+    throw new Error("Failed to load Google Sheet data");
+  }
+}
+
+// ==========================================
+// 7. USER SELECTION & LOGIN FLOW (NEW)
+// ==========================================
+
+function onUserClick(employee) {
+    // 1. Set pending user
+    pendingUser = employee;
+    // 2. Open Camera Immediately
+    startFaceScan('login');
+}
+
+async function performLogin(skipSessionLock = false) {
+  if (!pendingUser) return;
+  const employee = pendingUser;
+
+  // Session Lock
+  currentDeviceId = self.crypto.randomUUID();
+  localStorage.setItem("currentDeviceId", currentDeviceId);
+  try {
+    await setDoc(doc(sessionCollectionRef, employee.id), {
+      deviceId: currentDeviceId,
+      timestamp: new Date().toISOString(),
+      employeeName: employee.name,
+    });
+  } catch(e) { console.error(e); }
+
+  currentUser = employee;
+  localStorage.setItem("savedEmployeeId", employee.id);
+
+  // Shift Logic
+  const dayKey = ["shiftSun","shiftMon","shiftTue","shiftWed","shiftThu","shiftFri","shiftSat"][new Date().getDay()];
+  currentUserShift = currentUser[dayKey] || "N/A";
+
+  // UI Updates
+  profileImage.src = employee.photoUrl || "https://placehold.co/80x80/e2e8f0/64748b?text=Img";
+  profileName.textContent = employee.name;
+  profileId.textContent = `ID: ${employee.id}`;
+  profileDepartment.textContent = employee.department;
+  profileGroup.textContent = employee.group;
+  profileGrade.textContent = employee.grade;
+  profileShift.textContent = currentUserShift;
+
+  attendanceCollectionRef = collection(dbAttendance, `attendance/${employee.id}/records`);
+  
+  changeView("homeView");
+  
+  // Set matcher if missing (for auto-login case)
+  if (!currentUserFaceMatcher && employee.photoUrl) {
+      prepareFaceMatcher(employee.photoUrl); 
   }
 
-  // ចាប់ផ្តើមស្តាប់ទិន្នន័យ
   setupAttendanceListener();
   startLeaveListeners();
   startSessionListener(employee.id);
-
-  // សម្អាត Search
-  if (employeeListContainer) employeeListContainer.classList.add("hidden");
-  if (searchInput) searchInput.value = "";
+  
+  pendingUser = null; 
 }
+
+// ==========================================
+// 8. UI RENDER FUNCTIONS
+// ==========================================
+
+function renderEmployeeList(employees) {
+  const container = document.getElementById("employeeListContainer");
+  if(!container) return;
+  container.innerHTML = "";
+
+  if (employees.length === 0) {
+    container.innerHTML = `<div class="text-center py-10 text-gray-400">រកមិនឃើញទិន្នន័យ</div>`;
+    return;
+  }
+
+  employees.forEach((emp) => {
+    const card = document.createElement("div");
+    card.className = "bg-white p-3 rounded-xl shadow-sm border border-gray-100 flex items-center space-x-3 cursor-pointer hover:bg-blue-50 active:scale-95 transition-all";
+    card.innerHTML = `
+      <img src="${emp.photoUrl || "https://placehold.co/48x48/e2e8f0/64748b?text=Img"}" 
+           class="w-12 h-12 rounded-full object-cover border border-gray-200"
+           onerror="this.src='https://placehold.co/48x48/e2e8f0/64748b?text=Err'">
+      <div class="flex-1 min-w-0">
+          <h3 class="text-sm font-bold text-gray-800 truncate">${emp.name}</h3>
+          <p class="text-xs text-gray-500">ID: ${emp.id} <span class="text-gray-300">|</span> ${emp.group}</p>
+      </div>
+      <div class="text-gray-300">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+        </svg>
+      </div>
+    `;
+    card.onmousedown = () => onUserClick(emp);
+    container.appendChild(card);
+  });
+}
+
+function renderTodayHistory() {
+  const container = document.getElementById("historyContainer");
+  const noDataRow = document.getElementById("noHistoryRow");
+  if(!container || !noDataRow) return;
+  container.innerHTML = "";
+
+  const todayString = getTodayDateString();
+  const todayRecord = currentMonthRecords.find(r => r.date === todayString);
+
+  if (!todayRecord) {
+    container.appendChild(noDataRow);
+    return;
+  }
+
+  const card = document.createElement("div");
+  card.className = "bg-white rounded-xl shadow-md border border-gray-200 overflow-hidden";
+  
+  const formatVal = (val, isCheckIn) => {
+      if(!val) return isCheckIn ? `<span class="text-gray-400 text-sm">---</span>` : `<span class="text-gray-400 text-sm italic">មិនទាន់ចេញ</span>`;
+      if(val.includes("ច្បាប់")) return `<span class="font-bold text-blue-600 text-xs whitespace-nowrap">${val.replace("ច្បាប់", "")}</span>`;
+      return `<span class="font-bold ${isCheckIn ? 'text-green-700' : 'text-red-700'} whitespace-nowrap">${val}</span>`;
+  };
+
+  card.innerHTML = `
+    <div class="bg-blue-600 px-4 py-2 flex justify-between items-center text-white">
+       <span class="font-bold text-md">${todayRecord.formattedDate || todayRecord.date}</span>
+       <span class="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">ថ្ងៃនេះ</span>
+    </div>
+    <div class="p-4 grid grid-cols-2 gap-4 divide-x divide-gray-100">
+       <div class="flex flex-col items-center justify-center space-y-1">
+          <span class="text-xs text-gray-500 font-medium uppercase tracking-wider">ម៉ោងចូល</span>
+          ${formatVal(todayRecord.checkIn, true)}
+       </div>
+       <div class="flex flex-col items-center justify-center space-y-1">
+          <span class="text-xs text-gray-500 font-medium uppercase tracking-wider">ម៉ោងចេញ</span>
+          ${formatVal(todayRecord.checkOut, false)}
+       </div>
+    </div>
+  `;
+  container.appendChild(card);
+}
+
+function renderMonthlyHistory() {
+  const container = document.getElementById("monthlyHistoryContainer");
+  const noDataRow = document.getElementById("noMonthlyHistoryRow");
+  if(!container || !noDataRow) return;
+  container.innerHTML = "";
+
+  if (currentMonthRecords.length === 0) {
+    container.appendChild(noDataRow);
+    return;
+  }
+
+  currentMonthRecords.forEach(record => {
+    const isToday = record.date === getTodayDateString();
+    
+    const checkInDisplay = record.checkIn 
+        ? `<span class="font-bold ${record.checkIn.includes('ច្បាប់') ? 'text-blue-600' : 'text-green-700'} whitespace-nowrap text-sm">${record.checkIn}</span>`
+        : `<span class="text-red-500 text-xs font-medium">អវត្តមាន</span>`;
+        
+    const checkOutDisplay = record.checkOut
+        ? `<span class="font-bold ${record.checkOut.includes('ច្បាប់') ? 'text-blue-600' : 'text-red-700'} whitespace-nowrap text-sm">${record.checkOut}</span>`
+        : `<span class="text-gray-400 text-xs">---</span>`;
+
+    const card = document.createElement("div");
+    const borderColor = isToday ? "border-l-4 border-l-blue-500" : "border-l-4 border-l-gray-300";
+    card.className = `bg-white p-3 rounded-lg shadow-sm border border-gray-100 mb-3 ${borderColor}`;
+
+    card.innerHTML = `
+      <div class="flex items-center justify-between mb-2 border-b border-gray-50 pb-1">
+        <span class="font-bold text-gray-800 text-sm">${record.formattedDate || record.date}</span>
+        ${isToday ? '<span class="text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded font-bold">Today</span>' : ''}
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded">
+            <span class="text-xs text-gray-500">ចូល:</span> ${checkInDisplay}
+        </div>
+        <div class="flex justify-between items-center bg-gray-50 px-3 py-2 rounded">
+            <span class="text-xs text-gray-500">ចេញ:</span> ${checkOutDisplay}
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+}
+
+function startSessionListener(employeeId) {
+  if (sessionListener) sessionListener();
+  sessionListener = onSnapshot(doc(sessionCollectionRef, employeeId), (docSnap) => {
+    if (!docSnap.exists() || docSnap.data().deviceId !== localStorage.getItem("currentDeviceId")) {
+      logout();
+      showMessage("Logged Out", "គណនីរបស់អ្នកត្រូវបានចូលប្រើនៅលើឧបករណ៍ផ្សេង។", true);
+    }
+  });
+}
+
 function logout() {
   currentUser = null;
+  pendingUser = null;
   localStorage.removeItem("savedEmployeeId");
+  localStorage.removeItem("currentDeviceId");
   if (attendanceListener) attendanceListener();
   if (sessionListener) sessionListener();
   if (leaveCollectionListener) leaveCollectionListener();
   if (outCollectionListener) outCollectionListener();
-
-  attendanceRecords = [];
-  leaveRecords = [];
-  currentMonthRecords = [];
-
-  if (historyContainer) historyContainer.innerHTML = "";
-  if (monthlyHistoryContainer) monthlyHistoryContainer.innerHTML = "";
-
+  
   changeView("employeeListView");
+  searchInput.value = "";
+  renderEmployeeList(allEmployees);
 }
 
-function forceLogout(message) {
-  logout();
-  showMessage("Log Out", message, true);
-}
+// ==========================================
+// 9. EVENT LISTENERS
+// ==========================================
 
-function checkAutoLogin() {
-  const savedId = localStorage.getItem("savedEmployeeId");
-
-  if (savedId && allEmployees.length > 0) {
-    // ស្វែងរកទិន្នន័យបុគ្គលិកដែលមានស្រាប់
-    const savedEmp = allEmployees.find((e) => e.id === savedId);
-
-    if (savedEmp) {
-      console.log("🔄 Auto-login found user:", savedEmp.name);
-      // ហៅ finalizeLogin ផ្ទាល់ (រំលងការស្កេនមុខ)
-      finalizeLogin(savedEmp);
-    } else {
-      console.warn("User ID found but not in employee list (maybe deleted?)");
-      changeView("employeeListView");
-    }
-  } else {
-    // បើគ្មាន ID ឬទិន្នន័យមិនទាន់មកដល់ -> នៅបញ្ជីឈ្មោះ
-    changeView("employeeListView");
-  }
-}
-
-// ✅ មុខងារថ្មី៖ ទាញទិន្នន័យពី Realtime Database (Updated with Filters)
-function fetchEmployeesFromRTDB() {
-  changeView("loadingView");
-  const studentsRef = ref(dbEmployeeList, "students");
-  onValue(
-    studentsRef,
-    (snapshot) => {
-      const data = snapshot.val();
-      if (!data) {
-        allEmployees = [];
-        renderEmployeeList([]);
-        changeView("employeeListView");
-        return;
-      }
-
-      allEmployees = Object.keys(data)
-        .map((key) => {
-          const student = data[key];
-          const schedule = student["កាលវិភាគ"] || {};
-          return {
-            id: String(key).trim(),
-            name: student["ឈ្មោះ"] || "N.A", // Use ផ្នែកការងារ for department filtering
-            department: student["ផ្នែកការងារ"] || "N.A",
-            photoUrl: student["រូបថត"] || null, // Use ក្រុម for group filtering
-            group: student["ក្រុម"] || "N.A",
-            gender: student["ភេទ"] || "N/A",
-            grade: student["ថ្នាក់"] || "N/A",
-
-            shiftMon: schedule["ចន្ទ"] || null,
-            shiftTue: schedule["អង្គារ"] || schedule["អង្គារ៍"] || null,
-            shiftWed: schedule["ពុធ"] || null,
-            shiftThu:
-              schedule["ព្រហស្បតិ៍"] || schedule["ព្រហស្បត្តិ៍"] || null,
-            shiftFri: schedule["សុក្រ"] || null,
-            shiftSat: schedule["សៅរ៍"] || null,
-            shiftSun: schedule["អាទិត្យ"] || null,
-          };
-        })
-        .filter((emp) => {
-          // Department: "training_ជំនាន់២"
-          const group = (emp.group || "").trim();
-          const dept = (emp.department || "").trim();
-
-          const isGroupMatch = group === "IT Support" || group === "DRB";
-          return isGroupMatch;
-        });
-
-      renderEmployeeList(allEmployees);
-      checkAutoLogin();
-
-      if (loadingView.style.display !== "none") {
-        // checkAutoLogin will handle view change if logged in
-        // If not, we stay at employeeListView
-        if (!localStorage.getItem("savedEmployeeId")) {
-          changeView("employeeListView");
-        }
-      }
-    },
-    (error) => {
-      console.error(error);
-      showMessage("Error", "បរាជ័យក្នុងការទាញយកទិន្នន័យពី Database");
-      changeView("employeeListView");
-    }
+// Search Input
+searchInput.addEventListener("input", (e) => {
+  const term = e.target.value.toLowerCase();
+  const filtered = allEmployees.filter(e => 
+    e.name.toLowerCase().includes(term) || e.id.toLowerCase().includes(term)
   );
-}
+  renderEmployeeList(filtered);
+});
 
-// ============================================
-// 10. APP INITIALIZATION
-// ============================================
+searchInput.addEventListener("focus", () => {
+  const searchWrapper = searchInput.parentElement.parentElement;
+  if (searchWrapper) searchWrapper.classList.add("ring-2", "ring-blue-400", "ring-offset-2");
+  setTimeout(() => searchInput.scrollIntoView({ behavior: "smooth", block: "center" }), 300);
+});
 
-function setupAuthListener() {
-  onAuthStateChanged(authAttendance, (user) => {
-    if (user) {
-      loadAIModels();
-    } else {
-      signInAnonymously(authAttendance).catch((error) => {
-        showMessage("បញ្ហា", `Login Error: ${error.message}`, true);
-      });
-    }
-  });
-}
+searchInput.addEventListener("blur", () => {
+  const searchWrapper = searchInput.parentElement.parentElement;
+  if (searchWrapper) searchWrapper.classList.remove("ring-2", "ring-blue-400", "ring-offset-2");
+});
 
-async function initializeAppFirebase() {
-  try {
-    const attendanceApp = initializeApp(firebaseConfigAttendance);
-    dbAttendance = getFirestore(attendanceApp);
-    authAttendance = getAuth(attendanceApp);
-    dbShift = getDatabase(attendanceApp);
-    sessionCollectionRef = collection(dbAttendance, "active_sessions");
+// Buttons
+logoutButton.addEventListener("click", () => showConfirmation("ចាកចេញ", "តើអ្នកចង់ចាកចេញមែនទេ?", "ចាកចេញ", logout));
+exitAppButton.addEventListener("click", () => showConfirmation("បិទ", "បិទកម្មវិធី?", "បិទ", () => window.close()));
+checkInButton.addEventListener("click", () => startFaceScan("checkIn"));
+checkOutButton.addEventListener("click", () => startFaceScan("checkOut"));
+modalCancelButton.addEventListener("click", hideMessage);
+modalConfirmButton.addEventListener("click", () => currentConfirmCallback ? currentConfirmCallback() : hideMessage());
+cameraCloseButton.addEventListener("click", hideCameraModal);
+captureButton.addEventListener("click", handleCaptureAndAnalyze);
 
-    const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
-    dbLeave = getFirestore(leaveApp); // ✅ Initialize Employee List Database
-
-    const employeeListApp = initializeApp(
-      firebaseConfigEmployeeList,
-      "employeeListApp"
-    );
-    dbEmployeeList = getDatabase(employeeListApp);
-
-    setLogLevel("silent");
-
-    setupAuthListener(); // ✅ ហៅមុខងារថ្មី (Call the new function)
-    fetchEmployeesFromRTDB();
-  } catch (error) {
-    showMessage("Error", error.message, true);
-  }
-}
-
-// Event Listeners
-if (searchInput) {
-  searchInput.addEventListener("input", (e) => {
-    const term = e.target.value.toLowerCase();
-    const filtered = allEmployees.filter(
-      (e) => e.name.toLowerCase().includes(term) || e.id.includes(term)
-    );
-    renderEmployeeList(filtered);
-  });
-  searchInput.addEventListener("focus", () => {
-    if (employeeListHeader) employeeListHeader.style.display = "none";
-    if (employeeListContent) employeeListContent.style.paddingTop = "1rem";
-    renderEmployeeList(allEmployees);
-  });
-  searchInput.addEventListener("blur", () => {
-    setTimeout(() => {
-      if (employeeListHeader) employeeListHeader.style.display = "flex";
-      if (employeeListContent) employeeListContent.style.paddingTop = "";
-      if (employeeListContainer) employeeListContainer.classList.add("hidden");
-    }, 200);
-  });
-}
-
-if (logoutButton)
-  logoutButton.addEventListener("click", () =>
-    showConfirmation("Log Out", "ចាកចេញមែនទេ?", "Yes", () => {
-      logout();
-      hideMessage();
-    })
-  );
-if (exitAppButton)
-  exitAppButton.addEventListener("click", () =>
-    showConfirmation("Exit", "បិទកម្មវិធី?", "Yes", () => {
-      window.close();
-      hideMessage();
-    })
-  );
-if (cameraCloseButton)
-  cameraCloseButton.addEventListener("click", hideCameraModal);
-if (navHomeButton)
-  navHomeButton.addEventListener("click", () => {
+navHomeButton.addEventListener("click", () => {
     changeView("homeView");
     navHomeButton.classList.add("active-nav");
     navHistoryButton.classList.remove("active-nav");
-  });
-if (navHistoryButton)
-  navHistoryButton.addEventListener("click", () => {
+});
+navHistoryButton.addEventListener("click", () => {
     changeView("historyView");
-    navHistoryButton.classList.add("active-nav");
     navHomeButton.classList.remove("active-nav");
-  });
+    navHistoryButton.classList.add("active-nav");
+});
 
+// Initial Call
 document.addEventListener("DOMContentLoaded", initializeAppFirebase);
