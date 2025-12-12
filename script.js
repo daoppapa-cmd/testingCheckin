@@ -809,61 +809,84 @@ async function selectUser(employee) {
 }
 async function startFaceScan(action) {
   currentScanAction = action;
-  livenessStep = 0; // ✅ Reset Step
+  livenessStep = 0;
 
   if (!modelsLoaded) {
-    showMessage("Notice", "AI មិនទាន់ដំណើរការ (Models not found).");
+    alert("AI មិនទាន់ដំណើរការ។");
     return;
   }
 
+  // បង្ហាញ Modal
   if (cameraModal) {
     cameraModal.classList.remove("modal-hidden");
     cameraModal.classList.add("modal-visible");
   }
+  
+  // Update UI Text
+  if (cameraLoadingText) {
+      cameraLoadingText.textContent = "កំពុងបើកកាមេរ៉ា...";
+      cameraLoadingText.className = "text-white font-bold text-lg mb-1";
+  }
 
   try {
     let stream;
+    
+    // គន្លឹះ៖ សម្រាប់ Telegram/WebView សូមកុំកំណត់ Width/Height (Ideal)
+    // គ្រាន់តែសុំ Camera មុខ (User) គឺគ្រប់គ្រាន់ហើយ
+    const constraints = {
+      video: {
+        facingMode: "user", // យកកាមេរ៉ាមុខ
+        frameRate: { ideal: 30, max: 60 } // កំណត់តែ FrameRate បានហើយ
+      },
+      audio: false // បិទសំឡេងដាច់ខាត
+    };
+
     try {
-      // ព្យាយាមបើកកាមេរ៉ាជាមួយការកំណត់ល្អ (Resolution ខ្ពស់)
-      stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
-      });
-    } catch (e) {
-      console.warn("High-res camera failed, trying basic...", e); // បើបរាជ័យ (ដូជានៅលើ Telegram ខ្លះ) ព្យាយាមបើកតាមរបៀបធម្មតា
-      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (err) {
+      console.warn("Standard config failed, trying minimal config...", err);
+      // បើបរាជ័យ សុំបើកកាមេរ៉ាធម្មតាបំផុត (Fallback)
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
     }
 
     videoStream = stream;
 
     if (videoElement) {
-      videoElement.srcObject = videoStream; // Telegram/Webview ត្រូវការ play() ច្បាស់លាស់
-      videoElement.setAttribute("playsinline", "true");
+      videoElement.srcObject = videoStream;
+      
+      // 🔥 សំខាន់បំផុតសម្រាប់ Telegram & iOS WebView 🔥
+      videoElement.setAttribute("playsinline", "true"); 
+      videoElement.setAttribute("webkit-playsinline", "true");
+      videoElement.setAttribute("autoplay", "true");
+      videoElement.setAttribute("muted", "true");
+
+      // ធានាថាវីដេអូ Play
       await videoElement.play().catch((e) => console.error("Play error:", e));
 
       isScanning = true;
-      livenessStep = 0; // Reset step // រង់ចាំវីដេអូដើរស្រួលបួលសិន
-
-      if (videoElement.readyState >= 3) {
-        // HAVE_FUTURE_DATA
-        scanLoop();
-      } else {
-        videoElement.oncanplay = () => scanLoop();
-      }
+      
+      // រង់ចាំបន្តិចទើបចាប់ផ្តើម Scan Loop
+      videoElement.onloadedmetadata = () => {
+         scanLoop();
+      };
     }
   } catch (err) {
     console.error("Camera Error:", err);
     let msg = "កាមេរ៉ាមានបញ្ហា";
-    if (
-      err.name === "NotAllowedError" ||
-      err.name === "PermissionDeniedError"
-    ) {
-      msg = "សូមអនុញ្ញាត (Allow) ឱ្យប្រើកាមេរ៉ានៅក្នុង Settings។";
+    
+    if (err.name === "NotAllowedError" || err.name === "PermissionDeniedError") {
+       // បើនៅក្នុង Telegram វាពិបាក Reset Permission ណាស់
+       msg = "Telegram មិនអនុញ្ញាតឱ្យប្រើកាមេរ៉ាទេ។\n\nសូមចុចសញ្ញា (...) នៅជ្រុងខាងលើ រួចជ្រើសរើស 'Open in Chrome' ឬ 'Open in Safari'។";
+       
+       // បង្ហាញប៊ូតុងឱ្យ User ចុចទៅបើកនៅ Browser ក្រៅ
+       if(confirm(msg)) {
+          // បិទ Modal
+          hideCameraModal();
+          return;
+       }
     }
-    showMessage("Error", msg);
+    
+    alert(msg + "\n(" + err.message + ")");
     hideCameraModal();
   }
 }
