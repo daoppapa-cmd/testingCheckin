@@ -38,6 +38,7 @@ body {
   min-height: 0;
   height: 100%;
   overscroll-behavior-y: contain;
+  padding-bottom: 120px !important;
 }
 
 /* =========================================
@@ -346,4 +347,12 @@ button:active,
   width: 48px;
   height: 48px;
   object-fit: cover;
+}
+
+/* បន្ថែម CSS ថ្មីសម្រាប់កាតដែលស្អាតជាងមុន */
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  backdrop-filter: blur(10px);
 }
