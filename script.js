@@ -1197,57 +1197,22 @@ async function updateButtonState() {
 // 9. USER SELECTION & INIT
 // ============================================
 // ✅ 1. កែសម្រួល៖ ពេលជ្រើសរើសឈ្មោះ ត្រូវស្កេនមុខសិន (Login Face Scan)
-async function selectUser(employee) {
-  // ការពារករណីចុចលើទិន្នន័យទទេ
-  if (!employee) return;
 
-  changeView("loadingView");
-  if (typeof cameraLoadingText !== "undefined") {
-    cameraLoadingText.textContent = "កំពុងរៀបចំប្រព័ន្ធសុវត្ថិភាព...";
-  }
-
-  currentUser = employee;
-  localStorage.setItem("savedEmployeeId", employee.id);
-
-  const tempImg = new Image();
-  tempImg.crossOrigin = "Anonymous";
-  tempImg.src = employee.photoUrl || PLACEHOLDER_IMG;
-
-  tempImg.onload = async () => {
-    try {
-      await prepareFaceMatcher(tempImg);
-      // បើមាន Matcher (រូបប្រើបាន) -> ឱ្យស្កេនមុខ Login
-      if (currentUserFaceMatcher) {
-        startFaceScan("login");
-      } else {
-        // បើរូបថត Profile ខូច ឬមិនច្បាស់ -> ឱ្យចូលដោយប្រុងប្រយ័ត្ន (ឬហាមឃាត់តាមចិត្តអ្នក)
-        alert("រូបថត Profile មិនច្បាស់! អនុញ្ញាតឱ្យចូលដោយមិនស្កេន។");
-        finalizeLogin(employee);
-      }
-    } catch (error) {
-      console.error("Error preparing face:", error);
-      finalizeLogin(employee);
-    }
-  };
-
-  tempImg.onerror = () => {
-    alert("មិនអាចទាញយករូបភាព Profile បាន។");
-    changeView("employeeListView");
-  };
-}
 // ✅ Function ថ្មី៖ ដំណើរការចូលប្រើប្រាស់ ក្រោយពេលស្កេនមុខជោគជ័យ
 // ✅ Function ថ្មី៖ ដំណើរការចូលប្រើប្រាស់ (កែសម្រួលដើម្បីការពារ Error)
+// រក function នេះក្នុង script.js ហើយកែដូចខាងក្រោម
 async function finalizeLogin(employee) {
-  // 🔥 ការពារ Error: shiftThu of null
   if (!employee) {
-    console.error("⛔ Error: finalizeLogin ត្រូវបានហៅដោយគ្មានទិន្នន័យ (null)!");
+    console.error("⛔ Error: finalizeLogin ត្រូវបានហៅដោយគ្មានទិន្នន័យ!");
     changeView("employeeListView");
     return;
   }
 
-  console.log("✅ Finalizing login for:", employee.name);
+  console.log("✅ Login ជោគជ័យសម្រាប់:", employee.name);
   currentUser = employee;
-  localStorage.setItem("savedEmployeeId", employee.id);
+  
+  // ✅ បន្ថែមបន្ទាត់នេះនៅទីនេះវិញ (Save ID តែពេលស្កេនជោគជ័យប៉ុណ្ណោះ)
+  localStorage.setItem("savedEmployeeId", employee.id); 
 
   changeView("homeView");
 
@@ -1258,52 +1223,49 @@ async function finalizeLogin(employee) {
     profileImage.src = employee.photoUrl || PLACEHOLDER_IMG;
   }
 
-  // Reset Action Buttons
-  const actionArea = $("dynamicActionArea");
-  const activityArea = $("todayActivitySection");
+  // Reset UI ផ្សេងៗ
+  const actionArea = document.getElementById("dynamicActionArea");
+  const activityArea = document.getElementById("todayActivitySection");
   if (actionArea) actionArea.style.opacity = "0";
   if (activityArea) activityArea.style.opacity = "0";
 
-  // គណនា Shift (ការពារ Error)
+  // គណនា Shift
   const dayOfWeek = new Date().getDay();
   const dayToShiftKey = [
-    "shiftSun",
-    "shiftMon",
-    "shiftTue",
-    "shiftWed",
-    "shiftThu",
-    "shiftFri",
-    "shiftSat",
+    "shiftSun", "shiftMon", "shiftTue", "shiftWed", "shiftThu", "shiftFri", "shiftSat",
   ];
-
-  // ប្រើ employee ផ្ទាល់ដើម្បីយក Shift
   currentUserShift = employee[dayToShiftKey[dayOfWeek]] || "N/A";
 
   // បង្ហាញព័ត៌មានបន្ថែម
-  if (profileDepartment)
-    profileDepartment.textContent = employee.department || "N/A";
+  if (profileDepartment) profileDepartment.textContent = employee.department || "N/A";
   if (profileGroup) profileGroup.textContent = employee.group || "N/A";
   if (profileShift) profileShift.textContent = currentUserShift;
 
   // កំណត់ Firebase References
   const firestoreUserId = employee.id;
-  attendanceCollectionRef = collection(
-    dbAttendance,
-    `attendance/${firestoreUserId}/records`
-  );
+  
+  // ប្រាកដថា dbAttendance ត្រូវបាន Initialize រួចរាល់
+  if(typeof dbAttendance !== 'undefined' && dbAttendance) {
+      attendanceCollectionRef = collection(
+        dbAttendance,
+        `attendance/${firestoreUserId}/records`
+      );
+  }
 
   // កត់ត្រា Session
   currentDeviceId = self.crypto.randomUUID();
   localStorage.setItem("currentDeviceId", currentDeviceId);
 
   try {
-    await setDoc(doc(sessionCollectionRef, employee.id), {
-      deviceId: currentDeviceId,
-      timestamp: new Date().toISOString(),
-      employeeName: employee.name,
-    });
+     if(typeof sessionCollectionRef !== 'undefined' && sessionCollectionRef) {
+        await setDoc(doc(sessionCollectionRef, employee.id), {
+          deviceId: currentDeviceId,
+          timestamp: new Date().toISOString(),
+          employeeName: employee.name,
+        });
+     }
   } catch (e) {
-    console.warn("Session write failed (likely network/adblock):", e);
+    console.warn("Session write failed:", e);
   }
 
   // ចាប់ផ្តើមស្តាប់ទិន្នន័យ
