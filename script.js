@@ -463,46 +463,66 @@ function renderTodayHistory() {
     (record) => record.date === todayString
   );
 
-  const card = document.createElement("div");
-  card.className =
-    "animate-slide-up bg-white/80 backdrop-blur-md p-5 rounded-[1.8rem] border border-blue-50 shadow-sm card-hover-effect";
-
+  // បើមិនទាន់មានទិន្នន័យ
   if (!todayRecord) {
-    card.innerHTML = `
-      <div class="flex flex-col items-center justify-center py-6 text-slate-300">
-        <i class="ph-duotone ph-clipboard-text text-4xl mb-2 opacity-50"></i>
-        <p class="text-xs font-medium">មិនទាន់មានទិន្នន័យថ្ងៃនេះ</p>
-      </div>
-    `;
-  } else {
-    const checkIn = todayRecord.checkIn || "--:--";
-    const checkOut = todayRecord.checkOut || "មិនទាន់ចេញ";
-    const ciColor = todayRecord.checkIn
-      ? "text-green-600 bg-green-50"
-      : "text-slate-400 bg-slate-50";
-    const coColor = todayRecord.checkOut
-      ? "text-red-500 bg-red-50"
-      : "text-slate-400 bg-slate-50";
-
-    card.innerHTML = `
-       <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2">
-            <span class="px-2.5 py-1 rounded-lg bg-blue-100/80 text-blue-600 text-[10px] font-bold uppercase tracking-wider">Today</span>
-            <span class="text-xs text-slate-400 font-medium">${todayRecord.formattedDate}</span>
-          </div>
-       </div>
-       <div class="grid grid-cols-2 gap-4">
-          <div class="flex flex-col items-center p-3 rounded-2xl ${ciColor} transition-all">
-             <span class="text-[10px] opacity-70 mb-1">ចូល</span>
-             <span class="text-lg font-bold tracking-tight">${checkIn}</span>
-          </div>
-          <div class="flex flex-col items-center p-3 rounded-2xl ${coColor} transition-all">
-             <span class="text-[10px] opacity-70 mb-1">ចេញ</span>
-             <span class="text-sm font-bold tracking-tight mt-1">${checkOut}</span>
-          </div>
-       </div>
-    `;
+    historyContainer.innerHTML = `
+      <div class="bg-white/50 border border-dashed border-slate-300 rounded-2xl p-6 flex flex-col items-center justify-center text-center">
+        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3 text-slate-400">
+          <i class="ph-duotone ph-clock text-2xl"></i>
+        </div>
+        <p class="text-sm font-bold text-slate-600">មិនទាន់មានសកម្មភាព</p>
+        <p class="text-xs text-slate-400 mt-1">ទិន្នន័យថ្ងៃនេះនឹងបង្ហាញនៅទីនេះ</p>
+      </div>
+    `;
+    return;
   }
+
+  // បើមានទិន្នន័យ (Design ថ្មី)
+  const checkIn = todayRecord.checkIn || "--:--";
+  const checkOut = todayRecord.checkOut || "--:--";
+  
+  // ពណ៌សម្រាប់ស្ថានភាព
+  const inColor = todayRecord.checkIn ? "text-green-600 bg-green-50 border-green-100" : "text-slate-400 bg-slate-50 border-slate-100";
+  const outColor = todayRecord.checkOut ? "text-red-600 bg-red-50 border-red-100" : "text-slate-400 bg-slate-50 border-slate-100";
+
+  const card = document.createElement("div");
+  card.className = "bg-white rounded-[1.5rem] p-5 shadow-sm border border-slate-100 relative overflow-hidden animate-slide-up";
+  
+  card.innerHTML = `
+      <div class="flex items-center justify-between mb-4 relative z-10">
+         <div>
+            <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">Today Status</span>
+            <h3 class="text-sm font-bold text-slate-800 mt-0.5">${todayRecord.formattedDate}</h3>
+         </div>
+         <span class="bg-blue-600 text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-md shadow-blue-200">
+            TODAY
+         </span>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3 relative z-10">
+         <div class="flex flex-col p-3 rounded-2xl border ${inColor}">
+            <div class="flex items-center gap-2 mb-2">
+               <div class="w-6 h-6 rounded-full bg-white/60 flex items-center justify-center">
+                  <i class="ph-fill ph-sign-in text-xs"></i>
+               </div>
+               <span class="text-[10px] font-bold opacity-70">ម៉ោងចូល</span>
+            </div>
+            <span class="text-lg font-bold tracking-tight">${checkIn}</span>
+         </div>
+
+         <div class="flex flex-col p-3 rounded-2xl border ${outColor}">
+            <div class="flex items-center gap-2 mb-2">
+               <div class="w-6 h-6 rounded-full bg-white/60 flex items-center justify-center">
+                  <i class="ph-fill ph-sign-out text-xs"></i>
+               </div>
+               <span class="text-[10px] font-bold opacity-70">ម៉ោងចេញ</span>
+            </div>
+            <span class="text-lg font-bold tracking-tight">${checkOut}</span>
+         </div>
+      </div>
+      
+      <div class="absolute -bottom-6 -right-6 w-24 h-24 bg-gradient-to-br from-slate-50 to-slate-100 rounded-full blur-2xl z-0"></div>
+  `;
   historyContainer.appendChild(card);
 }
 
@@ -511,47 +531,64 @@ function renderMonthlyHistory() {
   monthlyHistoryContainer.innerHTML = "";
 
   if (currentMonthRecords.length === 0) {
-    monthlyHistoryContainer.innerHTML = `<p class="text-center py-10 text-slate-400">មិនទាន់មានទិន្នន័យសម្រាប់ខែនេះ</p>`;
+    monthlyHistoryContainer.innerHTML = `
+      <div class="flex flex-col items-center justify-center py-12 opacity-50">
+        <i class="ph-duotone ph-calendar-slash text-5xl mb-3 text-slate-300"></i>
+        <p class="text-sm font-medium text-slate-400">គ្មានទិន្នន័យសម្រាប់ខែនេះ</p>
+      </div>`;
     return;
   }
 
   const fragment = document.createDocumentFragment();
+  
   currentMonthRecords.forEach((record, i) => {
-    const checkIn = record.checkIn ? record.checkIn : "---";
-    const checkOut = record.checkOut ? record.checkOut : "---";
-    const ciClass = record.checkIn ? "text-blue-600" : "text-slate-400";
-    const coClass = record.checkOut ? "text-blue-600" : "text-slate-400";
+    const checkIn = record.checkIn ? record.checkIn : "--:--";
+    const checkOut = record.checkOut ? record.checkOut : "--:--";
+    
+    // Style សម្រាប់ម៉ោង (បើមានម៉ោង ពណ៌ដិត, បើអត់ ពណ៌ប្រផេះ)
+    const inStyle = record.checkIn ? "text-slate-800 font-bold" : "text-slate-300 font-medium";
+    const outStyle = record.checkOut ? "text-slate-800 font-bold" : "text-slate-300 font-medium";
+    
+    // Highlight ថ្ងៃនេះ
     const isToday = record.date === getTodayDateString();
-    const bgClass = isToday
-      ? "bg-blue-50 border-blue-100"
-      : "bg-white border-slate-50";
+    const borderClass = isToday ? "border-blue-200 ring-4 ring-blue-50" : "border-slate-100";
+    const bgClass = isToday ? "bg-white" : "bg-white";
 
     const card = document.createElement("div");
-    card.className = `${bgClass} p-4 rounded-2xl shadow-sm border mb-3 list-item-anim`;
+    card.className = `${bgClass} rounded-2xl p-4 border ${borderClass} mb-3 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.03)] list-item-anim relative`;
     card.style.animationDelay = `${i * 0.05}s`;
 
     card.innerHTML = `
-        <div class="flex justify-between items-center mb-3">
-           <p class="text-sm font-bold text-slate-800">
-             ${record.formattedDate || record.date}
-             ${
-      isToday
-        ? '<span class="ml-2 text-[10px] bg-blue-500 text-white px-2 py-0.5 rounded-full">Today</span>'
-        : ""
-    }
-           </p>
-        </div>
-        <div class="flex flex-col space-y-2 text-sm">
-          <div class="flex justify-between border-b border-gray-100 pb-1">
-            <span class="text-slate-500">ចូល</span>
-            <span class="${ciClass} font-medium">${checkIn}</span>
-          </div>
-          <div class="flex justify-between">
-            <span class="text-slate-500">ចេញ</span>
-            <span class="${coClass} font-medium">${checkOut}</span>
-          </div>
-        </div>
-    `;
+       <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-3">
+             <div class="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 font-bold text-xs border border-slate-100">
+                ${new Date(record.date).getDate()}
+             </div>
+             <div class="flex flex-col">
+                <span class="text-sm font-bold text-slate-700">${record.formattedDate}</span>
+                ${isToday ? '<span class="text-[9px] text-blue-500 font-bold bg-blue-50 px-1.5 py-0.5 rounded w-fit">Today</span>' : ''}
+             </div>
+          </div>
+       </div>
+
+       <div class="flex items-center bg-slate-50 rounded-xl p-1 border border-slate-100">
+          <div class="flex-1 flex flex-col items-center justify-center py-2 border-r border-slate-200 border-dashed">
+             <span class="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Check In</span>
+             <div class="flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full ${record.checkIn ? 'bg-green-500' : 'bg-slate-300'}"></div>
+                <span class="text-sm ${inStyle}">${checkIn}</span>
+             </div>
+          </div>
+
+          <div class="flex-1 flex flex-col items-center justify-center py-2">
+             <span class="text-[9px] text-slate-400 font-bold uppercase mb-0.5">Check Out</span>
+             <div class="flex items-center gap-1.5">
+                <div class="w-1.5 h-1.5 rounded-full ${record.checkOut ? 'bg-red-500' : 'bg-slate-300'}"></div>
+                <span class="text-sm ${outStyle}">${checkOut}</span>
+             </div>
+          </div>
+       </div>
+    `;
     fragment.appendChild(card);
   });
   monthlyHistoryContainer.appendChild(fragment);
