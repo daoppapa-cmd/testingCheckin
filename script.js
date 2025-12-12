@@ -715,17 +715,28 @@ function startSessionListener(employeeId) {
 // 7. FACE & CAMERA LOGIC
 // ============================================
 
+// រកមើល function loadAIModels ហើយកែដូចខាងក្រោម
 async function loadAIModels() {
+  // បង្ហាញអក្សរប្រាប់អ្នកប្រើ
+  if (typeof cameraLoadingText !== "undefined") {
+    cameraLoadingText.textContent = "កំពុងរៀបចំ AI Brain (1/2)...";
+  } else {
+    const loadingTxt = document.getElementById("loadingText");
+    if (loadingTxt) loadingTxt.textContent = "កំពុងរៀបចំ AI Brain (1/2)...";
+  }
+
   try {
     await Promise.all([
       faceapi.nets.tinyFaceDetector.loadFromUri("./models"),
       faceapi.nets.faceLandmark68Net.loadFromUri("./models"),
-      faceapi.nets.faceRecognitionNet.loadFromUri("./models"), // ✅ Add Expression Net for Smile Detection
+      faceapi.nets.faceRecognitionNet.loadFromUri("./models"),
       faceapi.nets.faceExpressionNet.loadFromUri("./models"),
     ]);
     modelsLoaded = true;
+    console.log("✅ AI Models Loaded Successfully");
   } catch (e) {
     console.error("Error loading models:", e);
+    alert("មិនអាច Load AI Models បានទេ។ សូមពិនិត្យមើល Internet!");
   }
 }
 
@@ -755,67 +766,44 @@ async function prepareFaceMatcher(imgElement) {
   }
 }
 
+// រកមើល function selectUser ហើយជំនួសដោយកូដនេះ
 async function selectUser(employee) {
-  // 1. ការពារការចុចលើទិន្នន័យទទេ
   if (!employee) return;
 
-  // 2. ពិនិត្យមើលថា AI Models ដំណើរការហើយឬនៅ?
-  if (!modelsLoaded) {
-    alert("ប្រព័ន្ធ AI កំពុងដំណើរការ... សូមរង់ចាំបន្តិច រួចចុចម្តងទៀត!");
-    return;
-  }
-
-  // បង្ហាញផ្ទាំង Loading
+  // បង្ហាញ Loading ពេលកំពុងដំណើរការរូប Profile
   changeView("loadingView");
   if (typeof cameraLoadingText !== "undefined") {
-    cameraLoadingText.textContent = "កំពុងរៀបចំប្រព័ន្ធសុវត្ថិភាព...";
-  } else {
-    // បើរកមិនឃើញ Element, ព្យាយាមរកតាម ID
-    const loadingTxt = document.getElementById("loadingText");
-    if (loadingTxt) loadingTxt.textContent = "កំពុងវិភាគទិន្នន័យមុខ...";
+    cameraLoadingText.textContent = "កំពុងបើកកាមេរ៉ា...";
   }
 
   currentUser = employee;
-  
-  // សម្គាល់៖ យើងមិន Save ID ទុកទេ ទាល់តែ Login ជាប់ (តាមការកែសម្រួលមុន)
 
-  // 3. ចាប់ផ្តើមដំណើរការរូបភាព Profile
+  // ដំណើរការរូបភាព Profile ភ្លាមៗ
   const tempImg = new Image();
-  tempImg.crossOrigin = "Anonymous"; // សំខាន់សម្រាប់ CORS
-  
-  // បើរូបភាពមិនមាន ឬខូច ប្រើរូប Placeholder
+  tempImg.crossOrigin = "Anonymous";
   const imageUrl = employee.photoUrl || PLACEHOLDER_IMG;
   tempImg.src = imageUrl;
 
   tempImg.onload = async () => {
     try {
-      // វិភាគរកមុខនៅក្នុងរូប Profile
+      // ដោយសារ AI Load រួចរាល់ពីដើមមក យើងអាចហៅមុខងារនេះបានភ្លាម
       await prepareFaceMatcher(tempImg);
 
-      // 4. លក្ខខណ្ឌបើកកាមេរ៉ា
       if (currentUserFaceMatcher) {
-        // ✅ បើរូប Profile មានមុខច្បាស់ -> បើកកាមេរ៉ាស្កេន
-        console.log("Profile face detected. Starting camera...");
+        // ✅ បើកកាមេរ៉ាស្កេនភ្លាមៗ (Fast Open)
         startFaceScan("login");
       } else {
-        // ❌ បើរូប Profile រកមុខមិនឃើញ -> ជូនដំណឹង និងមិនឱ្យចូល (ឬឱ្យចូលតាមការសម្រេចចិត្ត)
-        console.warn("No face detected in profile image.");
-        alert("រូបថត Profile របស់អ្នកមើលមិនច្បាស់ ឬមិនមានមុខ! ប្រព័ន្ធមិនអាចធ្វើការផ្ទៀងផ្ទាត់បានទេ។");
-        
-        // ជម្រើស៖ បើចង់ឱ្យចូលបានដោយមិនបាច់ស្កេន (សម្រាប់តេស្ត) អាចបើកបន្ទាត់ខាងក្រោម៖
-        // finalizeLogin(employee); 
-        
+        alert("រូបថត Profile នេះមិនច្បាស់ទេ។ មិនអាចស្កេនបាន។");
         changeView("employeeListView");
       }
     } catch (error) {
-      console.error("Error processing profile image:", error);
-      alert("មានបញ្ហាក្នុងការវិភាគរូបភាព៖ " + error.message);
+      console.error("Profile processing error:", error);
       changeView("employeeListView");
     }
   };
 
   tempImg.onerror = () => {
-    alert("មិនអាចទាញយករូបភាព Profile បានទេ។ សូមពិនិត្យមើលអ៊ីនធឺណិត ឬតំណភ្ជាប់រូបភាព។");
+    alert("មិនអាចដំណើរការរូបភាព Profile បានទេ។");
     changeView("employeeListView");
   };
 }
@@ -1467,8 +1455,13 @@ function setupAuthListener() {
   });
 }
 
+// រកមើល function initializeAppFirebase ហើយជំនួសដោយកូដនេះ
 async function initializeAppFirebase() {
   try {
+    // ១. បង្ហាញផ្ទាំង Loading ជាមុនសិន
+    changeView("loadingView");
+
+    // Initialize Firebase
     const attendanceApp = initializeApp(firebaseConfigAttendance);
     dbAttendance = getFirestore(attendanceApp);
     authAttendance = getAuth(attendanceApp);
@@ -1476,7 +1469,7 @@ async function initializeAppFirebase() {
     sessionCollectionRef = collection(dbAttendance, "active_sessions");
 
     const leaveApp = initializeApp(firebaseConfigLeave, "leaveApp");
-    dbLeave = getFirestore(leaveApp); // ✅ Initialize Employee List Database
+    dbLeave = getFirestore(leaveApp);
 
     const employeeListApp = initializeApp(
       firebaseConfigEmployeeList,
@@ -1486,10 +1479,20 @@ async function initializeAppFirebase() {
 
     setLogLevel("silent");
 
-    setupAuthListener(); // ✅ ហៅមុខងារថ្មី (Call the new function)
-    fetchEmployeesFromRTDB();
+    // ២. 🔥 រង់ចាំឱ្យ AI Load ចប់សិន (Wait for AI) 🔥
+    await loadAIModels();
+
+    // ៣. បន្ទាប់ពី AI ចប់ ទើបចាប់ផ្តើមទាញទិន្នន័យ និង Auth
+    if (document.getElementById("loadingText")) {
+       document.getElementById("loadingText").textContent = "កំពុងទាញយកបញ្ជីឈ្មោះ (2/2)...";
+    }
+    
+    setupAuthListener();
+    fetchEmployeesFromRTDB(); // Function នេះនឹងបិទ LoadingView ពេលទិន្នន័យមកដល់
+
   } catch (error) {
-    showMessage("Error", error.message, true);
+    console.error(error);
+    alert("Error Initializing App: " + error.message);
   }
 }
 
