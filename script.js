@@ -1060,12 +1060,15 @@ async function handleCheckIn() {
   if (actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
 
   try {
+    // ❌ លុបចោល៖ ការស្នើសុំទីតាំង និងការពិនិត្យបរិវេណ
+    /*
     const coords = await getUserLocation();
     if (!isInsideArea(coords.latitude, coords.longitude)) {
       showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
       updateButtonState();
       return;
     }
+    */
 
     const now = new Date();
     const todayDocId = getTodayDateString(now);
@@ -1079,10 +1082,16 @@ async function handleCheckIn() {
       checkInTimestamp: now.toISOString(),
       formattedDate: formatDate(now),
       checkIn: formatTime(now),
-      checkInLocation: { lat: coords.latitude, lon: coords.longitude },
+      // ✅ ដាក់ទីតាំងជា 0 ឬកំណត់សម្គាល់ថាបានបិទ
+      checkInLocation: { lat: 0, lon: 0, note: "Location Check Disabled" },
     });
+    
+    // បន្ទាប់ពី Save រួច Refresh ប៊ូតុង
+    updateButtonState();
+
   } catch (e) {
-    showMessage("Error", e.message, true);
+    console.error(e);
+    showMessage("Error", "មិនអាច Check In បានទេ៖ " + e.message, true);
     updateButtonState();
   }
 }
@@ -1091,12 +1100,15 @@ async function handleCheckOut() {
   if (actionBtnTitle) actionBtnTitle.textContent = "កំពុងដំណើរការ...";
 
   try {
+    // ❌ លុបចោល៖ ការស្នើសុំទីតាំង និងការពិនិត្យបរិវេណ
+    /*
     const coords = await getUserLocation();
     if (!isInsideArea(coords.latitude, coords.longitude)) {
       showMessage("ទីតាំង", "អ្នកនៅក្រៅបរិវេណក្រុមហ៊ុន");
       updateButtonState();
       return;
     }
+    */
 
     const now = new Date();
     const todayDocId = getTodayDateString(now);
@@ -1112,12 +1124,18 @@ async function handleCheckOut() {
         formattedDate: formatDate(now),
         checkOutTimestamp: now.toISOString(),
         checkOut: formatTime(now),
-        checkOutLocation: { lat: coords.latitude, lon: coords.longitude },
+        // ✅ ដាក់ទីតាំងជា 0 ឬកំណត់សម្គាល់ថាបានបិទ
+        checkOutLocation: { lat: 0, lon: 0, note: "Location Check Disabled" },
       },
       { merge: true }
     );
+    
+    // បន្ទាប់ពី Save រួច Refresh ប៊ូតុង
+    updateButtonState();
+
   } catch (e) {
-    showMessage("Error", e.message, true);
+    console.error(e);
+    showMessage("Error", "មិនអាច Check Out បានទេ៖ " + e.message, true);
     updateButtonState();
   }
 }
